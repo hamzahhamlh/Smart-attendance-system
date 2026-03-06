@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>تقرير الحضور - المحاضر</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+      body { font-family: 'Cairo', sans-serif; }
+      .card-shadow { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); }
+      .tab-active { border-bottom: 4px solid #1a3a8a; color: #1a3a8a; }
+    </style>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    
+    <!-- Navbar -->
+    <div class="bg-[#1a3a8a] text-white p-4 flex items-center justify-between sticky top-0 z-10">
+      <a href="home.html" class="text-xl">
+        <i class="fas fa-arrow-right"></i>
+      </a>
+      <h1 class="text-lg font-bold">تقرير الحضور</h1>
+      <div class="w-6"></div>
+    </div>
+
+    <div class="max-w-md mx-auto p-6 space-y-6">
+      
+      <!-- Course Selection -->
+      <div class="space-y-2">
+        <label class="block text-right text-sm font-bold text-gray-400">اختر المقرر لعرض التقرير</label>
+        <div class="relative flex items-center border border-gray-200 bg-white rounded-2xl overflow-hidden transition-all focus-within:border-[#1a3a8a]">
+          <select class="w-full px-4 py-4 text-right bg-transparent outline-none appearance-none font-bold text-[#1a3a8a] text-sm">
+            <option>هياكل البيانات والخوارزميات (CS301)</option>
+            <option>نظم التشغيل (CS302)</option>
+          </select>
+          <div class="px-4 text-gray-400 pointer-events-none">
+            <i class="fas fa-chevron-down text-xs"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="grid grid-cols-2 gap-4">
+        <div class="bg-[#eff6ff] p-4 rounded-2xl border border-blue-100 flex flex-col items-center text-center">
+          <i class="fas fa-users text-[#1a3a8a] text-xl mb-2"></i>
+          <span class="text-2xl font-bold text-[#1a3a8a]">0</span>
+          <span class="text-xs text-[#1a3a8a]">إجمالي الطلاب</span>
+        </div>
+        <div class="bg-[#e8f5f1] p-4 rounded-2xl border border-green-100 flex flex-col items-center text-center">
+          <i class="far fa-check-circle text-[#2d9d78] text-xl mb-2"></i>
+          <span class="text-2xl font-bold text-[#2d9d78]">0</span>
+          <span class="text-xs text-[#2d9d78]">الحاضرين</span>
+        </div>
+        <div class="bg-[#fef2f2] p-4 rounded-2xl border border-red-100 flex flex-col items-center text-center">
+          <i class="far fa-times-circle text-[#ef4444] text-xl mb-2"></i>
+          <span class="text-2xl font-bold text-[#ef4444]">0</span>
+          <span class="text-xs text-[#ef4444]">الغائبين</span>
+        </div>
+        <div class="bg-[#eff6ff] p-4 rounded-2xl border border-blue-100 flex flex-col items-center text-center">
+          <i class="fas fa-percent text-[#3b82f6] text-xl mb-2"></i>
+          <span class="text-2xl font-bold text-[#3b82f6]">0.0%</span>
+          <span class="text-xs text-[#3b82f6]">نسبة الحضور</span>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="flex border-b">
+        <button class="flex-1 py-4 font-bold text-sm tab-active">سجل الحضور</button>
+        <button class="flex-1 py-4 font-bold text-sm text-gray-400">إحصائيات</button>
+      </div>
+
+      <!-- Empty State -->
+      <div class="flex flex-col items-center justify-center py-12 text-center space-y-6">
+        <div class="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-400">
+          <i class="far fa-clipboard text-4xl"></i>
+        </div>
+        <h3 class="text-xl font-bold text-gray-400">لا يوجد سجل حضور لهذا المقرر</h3>
+      </div>
+
+    </div>
+
+  </body>
+</html>

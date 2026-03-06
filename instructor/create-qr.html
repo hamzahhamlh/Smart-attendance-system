@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>إنشاء رمز QR - المحاضر</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+      body { font-family: 'Cairo', sans-serif; }
+      .modal-bg { background-color: rgba(0, 0, 0, 0.5); }
+      .calendar-day.active { background-color: #1a3a8a; color: white; border-radius: 9999px; }
+      .time-hand { transform-origin: center; transition: transform 0.3s ease; }
+      .qr-container { background: white; border-radius: 2rem; padding: 2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+    </style>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    
+    <!-- Navbar -->
+    <div class="bg-[#1a3a8a] text-white p-4 flex items-center justify-between sticky top-0 z-10">
+      <a href="home.html" class="text-xl">
+        <i class="fas fa-arrow-right"></i>
+      </a>
+      <h1 id="pageTitle" class="text-lg font-bold">إنشاء رمز QR</h1>
+      <div class="w-6"></div>
+    </div>
+
+    <!-- Main Content (Form) -->
+    <div id="formContainer" class="max-w-md mx-auto p-6 space-y-8">
+      
+      <!-- Course Selection -->
+      <div class="space-y-2">
+        <label class="block text-right text-sm font-bold text-[#1a3a8a]">اختر المقرر</label>
+        <div class="relative flex items-center border border-gray-200 bg-white rounded-2xl overflow-hidden transition-all focus-within:border-[#1a3a8a] focus-within:ring-4 focus-within:ring-blue-100">
+          <select id="courseSelect" class="w-full px-4 py-4 text-right bg-transparent outline-none appearance-none font-bold text-[#1a3a8a] text-sm">
+            <option value="" disabled selected>اختر المقرر...</option>
+            <option value="CS301">هياكل البيانات والخوارزميات (CS301)</option>
+            <option value="CS302">نظم التشغيل (CS302)</option>
+          </select>
+          <div class="px-4 text-gray-400 pointer-events-none">
+            <i class="fas fa-chevron-down text-xs"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Room Number -->
+      <div class="space-y-2">
+        <label class="block text-right text-sm font-bold text-[#1a3a8a]">رقم القاعة</label>
+        <div class="relative flex items-center border border-gray-200 bg-white rounded-2xl overflow-hidden transition-all focus-within:border-[#1a3a8a] focus-within:ring-4 focus-within:ring-blue-100">
+          <input
+            id="roomInput"
+            type="text"
+            placeholder="مثال: مبنى 15 - قاعة 101"
+            class="w-full px-4 py-4 text-right outline-none placeholder:text-gray-300 text-sm"
+          />
+        </div>
+      </div>
+
+      <!-- Date Picker -->
+      <div class="space-y-2">
+        <label class="block text-right text-sm font-bold text-[#1a3a8a]">تاريخ المحاضرة</label>
+        <div id="openDatePicker" class="relative flex items-center border border-gray-200 bg-white rounded-2xl overflow-hidden transition-all cursor-pointer hover:bg-gray-50">
+          <div class="px-4 text-[#1a3a8a]">
+            <i class="far fa-calendar-alt"></i>
+          </div>
+          <div id="dateValue" class="w-full px-4 ps-0 py-4 text-right text-gray-400 text-sm">اختر تاريخ المحاضرة</div>
+          <div class="px-4 text-gray-400">
+            <i class="fas fa-chevron-down text-xs"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Time Picker -->
+      <div class="space-y-2">
+        <label class="block text-right text-sm font-bold text-[#1a3a8a]">وقت المحاضرة</label>
+        <div id="openTimePicker" class="relative flex items-center border border-gray-200 bg-white rounded-2xl overflow-hidden transition-all cursor-pointer hover:bg-gray-50">
+          <div class="px-4 text-[#1a3a8a]">
+            <i class="far fa-clock"></i>
+          </div>
+          <div id="timeValue" class="w-full px-4 ps-0 py-4 text-right text-gray-400 text-sm">اختر وقت المحاضرة</div>
+          <div class="px-4 text-gray-400">
+            <i class="fas fa-chevron-down text-xs"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Submit Button -->
+      <button id="submitBtn" disabled class="w-full bg-gray-200 text-gray-400 font-bold py-4 rounded-2xl cursor-not-allowed mt-8 transition-colors">
+        إنشاء رمز QR
+      </button>
+
+    </div>
+
+    <!-- Success View (QR Code) -->
+    <div id="successContainer" class="hidden max-w-md mx-auto p-6 space-y-8">
+      <!-- Success Message -->
+      <div class="bg-[#e8f5f1] rounded-2xl p-4 flex items-center justify-start border border-[#d1e9e2] text-[#2d9d78]">
+				<i class="far fa-check-circle text-2xl"></i>
+				<div class="text-right mr-2">
+					<h3 class="font-bold text-sm">تم إنشاء رمز QR بنجاح</h3>
+          <p class="text-xs opacity-80">اعرض هذا الرمز للطلاب لتسجيل الحضور</p>
+        </div>
+      </div>
+
+      <!-- QR Code Card -->
+      <div class="qr-container flex flex-col items-center space-y-6">
+        <div class="w-64 h-64 bg-gray-100 rounded-xl flex items-center justify-center border-2 border-dashed border-gray-300">
+          <!-- Real QR Placeholder -->
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=Attendance-CS301-Room4" alt="QR Code" class="w-full h-full p-4" />
+        </div>
+        <div class="text-center">
+          <h2 id="qrCourseName" class="text-xl font-bold text-[#1a3a8a]">هياكل البيانات - CS301</h2>
+          <p id="qrRoomName" class="text-gray-400">القاعة: 101</p>
+        </div>
+      </div>
+
+      <!-- Session Info -->
+      <div class="bg-[#fff7ed] rounded-3xl p-6 border border-[#ffedd5] space-y-4">
+        <div class="flex items-center justify-between">
+					<div class="flex items-center space-x-2 space-x-reverse text-[#f97316]">
+            <i class="far fa-clock"></i>
+						<span class="text-sm font-bold">الوقت المتبقي:</span>
+          </div>
+					<span class="text-[#f97316] font-bold">10:00:00</span>
+        </div>
+        <button class="w-full bg-[#ef4444] text-white font-bold py-4 rounded-2xl shadow-md hover:bg-red-600 transition-colors">
+          إنهاء الجلسة
+        </button>
+      </div>
+
+      <button id="resetBtn" class="w-full border-2 border-[#1a3a8a] text-[#1a3a8a] font-bold py-4 rounded-2xl hover:bg-[#1a3a8a]/5 transition-colors">
+        إنشاء رمز جديد
+      </button>
+    </div>
+
+    <!-- Date Picker Modal -->
+    <div id="dateModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-6 modal-bg">
+      <div class="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl">
+        <div class="p-6 space-y-4">
+          <div class="text-right text-gray-500 text-xs">اختيار التاريخ</div>
+          <div class="flex items-center justify-between border-b pb-4">
+            <i class="fas fa-pencil-alt text-gray-400 text-sm"></i>
+            <h2 id="selectedDateHeader" class="text-2xl font-bold text-[#1a3a8a]">الخميس، 5 مارس</h2>
+          </div>
+          
+          <div class="flex items-center justify-between px-2">
+            <div class="flex items-center space-x-4 space-x-reverse">
+              <i class="fas fa-chevron-right text-gray-400 cursor-pointer"></i>
+              <i class="fas fa-chevron-left text-gray-400 cursor-pointer"></i>
+            </div>
+            <div class="flex items-center space-x-1 space-x-reverse text-gray-500 font-bold">
+              <span>مارس ٢٠٢٦</span>
+              <i class="fas fa-caret-down text-xs"></i>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-7 gap-2 text-center text-xs">
+            <div class="text-gray-400 font-bold py-2">س</div><div class="text-gray-400 font-bold py-2">ح</div><div class="text-gray-400 font-bold py-2">ن</div><div class="text-gray-400 font-bold py-2">ث</div><div class="text-gray-400 font-bold py-2">ر</div><div class="text-gray-400 font-bold py-2">خ</div><div class="text-gray-400 font-bold py-2">ج</div>
+            <div class="py-2 text-gray-300">١</div><div class="py-2 text-gray-300">٢</div><div class="py-2 text-gray-300">٣</div><div class="py-2 text-gray-300">٤</div>
+            <button class="py-2 calendar-day active font-bold select-day" data-day="5">٥</button>
+            <button class="py-2 hover:bg-gray-100 rounded-full select-day" data-day="6">٦</button>
+            <button class="py-2 hover:bg-gray-100 rounded-full select-day" data-day="7">٧</button>
+            <button class="py-2 hover:bg-gray-100 rounded-full select-day" data-day="8">٨</button>
+            <button class="py-2 hover:bg-gray-100 rounded-full select-day" data-day="9">٩</button>
+          </div>
+        </div>
+        <div class="flex items-center justify-between px-8 py-4 border-t">
+          <button id="confirmDate" class="text-[#1a3a8a] font-bold text-sm">حسناً</button>
+          <button class="text-[#1a3a8a] font-bold text-sm closeModal">الإلغاء</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Time Picker Modal -->
+    <div id="timeModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-6 modal-bg">
+      <div class="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl">
+        <div class="p-8 space-y-8 flex flex-col items-center">
+          <div class="w-full text-right text-gray-500 text-xs">اختيار الوقت</div>
+          
+          <div class="flex items-center space-x-4 space-x-reverse">
+            <div class="flex flex-col border rounded-lg overflow-hidden text-xs">
+              <button id="periodAM" class="px-4 py-2 bg-blue-500 text-white font-bold">ص</button>
+              <button id="periodPM" class="px-4 py-2 bg-white text-gray-500 font-bold">م</button>
+            </div>
+            <div class="flex items-center space-x-2 space-x-reverse text-5xl font-bold text-[#1a3a8a]">
+              <span id="displayMinutes">00</span>
+              <span>:</span>
+              <span id="displayHours" class="bg-[#1a3a8a] text-white px-4 py-2 rounded-xl">08</span>
+            </div>
+          </div>
+
+          <!-- Clock Face -->
+          <div class="relative w-56 h-56 bg-gray-50 rounded-full flex items-center justify-center border">
+            <div class="absolute inset-0 p-6">
+              <div class="relative w-full h-full">
+                <button class="absolute top-0 left-1/2 -translate-x-1/2 text-gray-400 font-bold select-hour" data-hour="12">12</button>
+                <button class="absolute top-[10%] right-[15%] text-gray-400 font-bold select-hour" data-hour="1">1</button>
+                <button class="absolute top-[25%] right-[5%] text-gray-400 font-bold select-hour" data-hour="2">2</button>
+                <button class="absolute top-1/2 right-0 -translate-y-1/2 text-gray-400 font-bold select-hour" data-hour="3">3</button>
+                <button class="absolute bottom-[25%] right-[5%] text-gray-400 font-bold select-hour" data-hour="4">4</button>
+                <button class="absolute bottom-[10%] right-[15%] text-gray-400 font-bold select-hour" data-hour="5">5</button>
+                <button class="absolute bottom-0 left-1/2 -translate-x-1/2 text-gray-400 font-bold select-hour" data-hour="6">6</button>
+                <button class="absolute bottom-[10%] left-[15%] text-gray-400 font-bold select-hour" data-hour="7">7</button>
+                <button class="absolute bottom-[25%] left-[5%] text-gray-400 font-bold select-hour" data-hour="8">8</button>
+                <button class="absolute top-1/2 left-0 -translate-y-1/2 text-gray-400 font-bold select-hour" data-hour="9">9</button>
+                <button class="absolute top-[25%] left-[5%] text-gray-400 font-bold select-hour" data-hour="10">10</button>
+                <button class="absolute top-[10%] left-[15%] text-gray-400 font-bold select-hour" data-hour="11">11</button>
+              </div>
+            </div>
+            <div id="clockHand" class="absolute w-1 h-20 bg-[#1a3a8a] bottom-1/2 left-1/2 -translate-x-1/2 origin-bottom transition-transform duration-300 rounded-full" style="transform: rotate(240deg);">
+              <div class="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-8 bg-[#1a3a8a] rounded-full flex items-center justify-center text-white text-xs font-bold">8</div>
+            </div>
+            <div class="w-3 h-3 bg-[#1a3a8a] rounded-full z-10 shadow-sm"></div>
+          </div>
+
+          <div class="w-full flex items-center justify-between pt-4">
+            <i class="fas fa-keyboard text-gray-400"></i>
+            <div class="flex space-x-8 space-x-reverse">
+              <button id="confirmTime" class="text-[#1a3a8a] font-bold text-sm">حسناً</button>
+              <button class="text-[#1a3a8a] font-bold text-sm closeModal">الإلغاء</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const formContainer = document.getElementById('formContainer');
+      const successContainer = document.getElementById('successContainer');
+      const submitBtn = document.getElementById('submitBtn');
+      const resetBtn = document.getElementById('resetBtn');
+      
+      const courseSelect = document.getElementById('courseSelect');
+      const roomInput = document.getElementById('roomInput');
+      const dateValue = document.getElementById('dateValue');
+      const timeValue = document.getElementById('timeValue');
+
+      const dateModal = document.getElementById('dateModal');
+      const timeModal = document.getElementById('timeModal');
+      const openDatePicker = document.getElementById('openDatePicker');
+      const openTimePicker = document.getElementById('openTimePicker');
+      const closeButtons = document.querySelectorAll('.closeModal');
+
+      let selectedDate = null;
+      let selectedTime = null;
+
+      // Validation logic
+      function validateForm() {
+        const isCourseSelected = courseSelect.value !== "";
+        const isRoomFilled = roomInput.value.trim() !== "";
+        const isDateSelected = selectedDate !== null;
+        const isTimeSelected = selectedTime !== null;
+
+        if (isCourseSelected && isRoomFilled && isDateSelected && isTimeSelected) {
+          submitBtn.disabled = false;
+          submitBtn.classList.remove('bg-gray-200', 'text-gray-400', 'cursor-not-allowed');
+          submitBtn.classList.add('bg-[#1a3a8a]', 'text-white', 'hover:bg-[#142d6b]');
+        } else {
+          submitBtn.disabled = true;
+          submitBtn.classList.add('bg-gray-200', 'text-gray-400', 'cursor-not-allowed');
+          submitBtn.classList.remove('bg-[#1a3a8a]', 'text-white', 'hover:bg-[#142d6b]');
+        }
+      }
+
+      courseSelect.addEventListener('change', validateForm);
+      roomInput.addEventListener('input', validateForm);
+
+      // Date Picker Logic
+      openDatePicker.addEventListener('click', () => dateModal.classList.remove('hidden'));
+      
+      document.querySelectorAll('.select-day').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.calendar-day').forEach(d => d.classList.remove('active'));
+          e.target.classList.add('active');
+          const day = e.target.dataset.day;
+          selectedDate = `2026-03-${day.padStart(2, '0')}`;
+          document.getElementById('selectedDateHeader').textContent = `الخميس، ${day} مارس`;
+        });
+      });
+
+      document.getElementById('confirmDate').addEventListener('click', () => {
+        if (selectedDate) {
+          dateValue.textContent = selectedDate;
+          dateValue.classList.remove('text-gray-400');
+          dateValue.classList.add('text-[#1a3a8a]', 'font-bold');
+          dateModal.classList.add('hidden');
+          validateForm();
+        }
+      });
+
+      // Time Picker Logic
+      openTimePicker.addEventListener('click', () => timeModal.classList.remove('hidden'));
+      
+      let currentHour = 8;
+      let currentPeriod = 'ص';
+
+      document.querySelectorAll('.select-hour').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          currentHour = e.target.dataset.hour;
+          document.getElementById('displayHours').textContent = currentHour.padStart(2, '0');
+          const rotation = (currentHour % 12) * 30;
+          const hand = document.getElementById('clockHand');
+          hand.style.transform = `rotate(${rotation}deg)`;
+          hand.querySelector('div').textContent = currentHour;
+        });
+      });
+
+      document.getElementById('periodAM').addEventListener('click', () => {
+        currentPeriod = 'ص';
+        document.getElementById('periodAM').classList.add('bg-blue-500', 'text-white');
+        document.getElementById('periodPM').classList.remove('bg-blue-500', 'text-white');
+      });
+
+      document.getElementById('periodPM').addEventListener('click', () => {
+        currentPeriod = 'م';
+        document.getElementById('periodPM').classList.add('bg-blue-500', 'text-white');
+        document.getElementById('periodAM').classList.remove('bg-blue-500', 'text-white');
+      });
+
+      document.getElementById('confirmTime').addEventListener('click', () => {
+        selectedTime = `${currentHour}:00 ${currentPeriod}`;
+        timeValue.textContent = selectedTime;
+        timeValue.classList.remove('text-gray-400');
+        timeValue.classList.add('text-[#1a3a8a]', 'font-bold');
+        timeModal.classList.add('hidden');
+        validateForm();
+      });
+
+      closeButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          timeModal.classList.add('hidden');
+          dateModal.classList.add('hidden');
+        });
+      });
+
+      // Submit Logic
+      submitBtn.addEventListener('click', () => {
+        formContainer.classList.add('hidden');
+        successContainer.classList.remove('hidden');
+        document.getElementById('pageTitle').textContent = 'إنشاء رمز QR';
+        
+        // Update QR details
+        document.getElementById('qrCourseName').textContent = courseSelect.options[courseSelect.selectedIndex].text;
+        document.getElementById('qrRoomName').textContent = `القاعة: ${roomInput.value}`;
+      });
+
+      resetBtn.addEventListener('click', () => {
+        location.reload();
+      });
+    </script>
+  </body>
+</html>
+
+  </body>
+</html>
