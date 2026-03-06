@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>المقررات - المحاضر</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: 'Cairo', sans-serif;
+    }
+
+    .card-shadow {
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    }
+
+    .modal-bg {
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .error-border {
+      border-color: #ef4444 !important;
+    }
+
+    .error-text {
+      color: #ef4444;
+      font-size: 0.75rem;
+      margin-top: 0.25rem;
+      margin-right: 0.25rem;
+      display: none;
+    }
+
+    #statusMessage {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-weight: 600;
+      display: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+  </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+
+  <!-- Navbar -->
+  <div class="bg-[#1a3a8a] text-white p-4 flex items-center justify-between sticky top-0 z-10">
+    <a href="home.html" class="text-xl">
+      <i class="fas fa-arrow-right"></i>
+    </a>
+    <h1 class="text-lg font-bold">المقررات</h1>
+    <button id="addCourseBtn"
+      class="bg-white text-[#1a3a8a] px-4 py-2 rounded-xl font-bold text-sm hover:bg-gray-100 transition-colors">
+      <i class="fas fa-plus ml-1"></i> إضافة
+    </button>
+  </div>
+
+  <!-- Status Message Toast -->
+  <div id="statusMessage"></div>
+
+  <div id="coursesContainer" class="max-w-md mx-auto p-6 space-y-6">
+    <!-- سيتم عرض المقررات هنا ديناميكياً -->
+    <div class="text-center text-gray-400 py-10" id="loadingMessage">
+      <i class="fas fa-spinner fa-spin text-3xl mb-3"></i>
+      <p>جاري تحميل المقررات...</p>
+    </div>
+  </div>
+
+  <!-- Modal for Add/Edit Course -->
+  <div id="courseModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-6 modal-bg">
+    <div class="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl">
+      <div class="p-6 space-y-4">
+        <div class="flex justify-between items-center">
+          <h2 id="modalTitle" class="text-xl font-bold text-[#1a3a8a]">إضافة مقرر جديد</h2>
+          <button id="closeModalBtn" class="text-gray-400 hover:text-gray-600">
+            <i class="fas fa-times text-2xl"></i>
+          </button>
+        </div>
+
+        <!-- Form -->
+        <div class="space-y-4">
+          <div>
+            <label class="block text-right text-sm font-bold text-[#1a3a8a] mb-1">اسم المقرر</label>
+            <input id="courseName" type="text" placeholder="مثال: هياكل البيانات"
+              class="w-full px-4 py-3 border border-gray-200 rounded-2xl text-right outline-none focus:border-[#1a3a8a] transition-colors">
+            <span id="nameError" class="error-text">يرجى إدخال اسم المقرر</span>
+          </div>
+          <div>
+            <label class="block text-right text-sm font-bold text-[#1a3a8a] mb-1">رمز المقرر</label>
+            <input id="courseCode" type="text" placeholder="مثال: CS301"
+              class="w-full px-4 py-3 border border-gray-200 rounded-2xl text-right outline-none focus:border-[#1a3a8a] transition-colors">
+            <span id="codeError" class="error-text">يرجى إدخال رمز المقرر</span>
+          </div>
+
+
+        </div>
+
+        <!-- Hidden input for editing -->
+        <input type="hidden" id="courseId" value="">
+
+        <!-- Action buttons -->
+        <div class="flex gap-3 pt-4">
+          <button id="saveCourseBtn"
+            class="flex-1 bg-[#1a3a8a] text-white font-bold py-3 rounded-2xl hover:bg-[#142d6b] transition-colors flex items-center justify-center">
+            <span id="saveBtnText">حفظ</span>
+            <div id="saveBtnLoader"
+              class="hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+          </button>
+          <button id="cancelModalBtn"
+            class="flex-1 border-2 border-gray-200 text-gray-500 font-bold py-3 rounded-2xl hover:bg-gray-50 transition-colors">
+            إلغاء
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Template for course card -->
+  <template id="courseCardTemplate">
+    <div class="bg-white rounded-3xl p-6 card-shadow flex flex-col space-y-6 course-card" data-course-id="">
+      <div class="flex items-start justify-between">
+        <div class="text-right">
+          <h2 class="text-xl font-bold text-[#1a3a8a] course-name">اسم المقرر</h2>
+          <p class="text-gray-400 text-sm course-code">رمز المقرر</p>
+        </div>
+        <div class="w-12 h-12 bg-[#eff6ff] rounded-xl flex items-center justify-center text-[#3b82f6]">
+          <i class="fas fa-book text-2xl"></i>
+        </div>
+      </div>
+
+
+      <!-- Action Buttons -->
+      <div class="grid grid-cols-2 gap-4 pt-4 border-t">
+        <button
+          class="edit-btn bg-[#1a3a8a] text-white py-3 rounded-xl flex items-center justify-center space-x-2 space-x-reverse font-bold text-sm hover:bg-[#142d6b] transition-colors">
+          <i class="fas fa-edit"></i>
+          <span>تعديل</span>
+        </button>
+        <button
+          class="delete-btn border-2 border-red-500 text-red-500 py-3 rounded-xl flex items-center justify-center space-x-2 space-x-reverse font-bold text-sm hover:bg-red-50 transition-colors">
+          <i class="fas fa-trash"></i>
+          <span>حذف</span>
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <script src="../src/config.js"></script>
+  <script src="../src/auth.js"></script>
+  <script src="../src/functions.js"></script>
+  <script>
+    const { createClient } = supabase;
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // التحقق من الجلسة (محاضر)
+    const auth = checkAuth('instructor');
+    if (!auth) {
+      throw new Error('Redirecting...');
+    }
+    const currentInstructor = auth.user;
+
+    // عناصر DOM
+    const coursesContainer = document.getElementById('coursesContainer');
+    const loadingMessage = document.getElementById('loadingMessage');
+    const addCourseBtn = document.getElementById('addCourseBtn');
+    const courseModal = document.getElementById('courseModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const courseIdInput = document.getElementById('courseId');
+    const courseNameInput = document.getElementById('courseName');
+    const courseCodeInput = document.getElementById('courseCode');
+    const saveCourseBtn = document.getElementById('saveCourseBtn');
+    const saveBtnText = document.getElementById('saveBtnText');
+    const saveBtnLoader = document.getElementById('saveBtnLoader');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const cancelModalBtn = document.getElementById('cancelModalBtn');
+    const nameError = document.getElementById('nameError');
+    const codeError = document.getElementById('codeError');
+    const statusMessage = document.getElementById('statusMessage');
+
+    let courses = []; // قائمة المقررات الحالية
+
+    // تحميل المقررات من قاعدة البيانات
+    async function loadCourses() {
+      try {
+        const { data, error } = await supabaseClient
+          .from('courses')
+          .select('*')
+          .eq('instructor_id', currentInstructor.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        courses = data || [];
+        renderCourses();
+      } catch (error) {
+        console.error('Error loading courses:', error);
+        showStatus('فشل تحميل المقررات', 'error');
+        loadingMessage.style.display = 'none';
+        coursesContainer.innerHTML = '<div class="text-center text-red-500 py-10">حدث خطأ أثناء التحميل</div>';
+      }
+    }
+
+    // عرض المقررات في الصفحة
+    function renderCourses() {
+      loadingMessage.style.display = 'none';
+      coursesContainer.innerHTML = ''; // مسح المحتوى الحالي
+
+      if (courses.length === 0) {
+        coursesContainer.innerHTML = `
+                    <div class="bg-white rounded-3xl p-10 text-center card-shadow">
+                        <i class="fas fa-book-open text-5xl text-gray-300 mb-4"></i>
+                        <p class="text-gray-500">لا توجد مقررات مضافة بعد</p>
+                        <p class="text-xs text-gray-400 mt-2">انقر على زر "إضافة" لإنشاء مقرر جديد</p>
+                    </div>
+                `;
+        return;
+      }
+
+      const template = document.getElementById('courseCardTemplate');
+      courses.forEach(course => {
+        const card = template.content.cloneNode(true);
+        const cardDiv = card.querySelector('.course-card');
+        cardDiv.dataset.courseId = course.id;
+
+        card.querySelector('.course-name').textContent = course.name || 'بدون اسم';
+        card.querySelector('.course-code').textContent = course.code || 'بدون رمز';
+
+
+        // أزرار التعديل والحذف
+        const editBtn = card.querySelector('.edit-btn');
+        editBtn.addEventListener('click', () => openEditModal(course));
+
+        const deleteBtn = card.querySelector('.delete-btn');
+        deleteBtn.addEventListener('click', () => confirmDelete(course.id));
+
+        coursesContainer.appendChild(card);
+      });
+    }
+
+    // فتح modal لإضافة مقرر جديد
+    function openAddModal() {
+      modalTitle.textContent = 'إضافة مقرر جديد';
+      courseIdInput.value = '';
+      courseNameInput.value = '';
+      courseCodeInput.value = '';
+      hideErrors();
+      courseModal.classList.remove('hidden');
+    }
+
+    // فتح modal لتعديل مقرر
+    function openEditModal(course) {
+      modalTitle.textContent = 'تعديل المقرر';
+      courseIdInput.value = course.id;
+      courseNameInput.value = course.name || '';
+      courseCodeInput.value = course.code || '';
+      hideErrors();
+      courseModal.classList.remove('hidden');
+    }
+
+    // إخفاء رسائل الخطأ
+    function hideErrors() {
+      nameError.style.display = 'none';
+      codeError.style.display = 'none';
+      courseNameInput.classList.remove('error-border');
+      courseCodeInput.classList.remove('error-border');
+    }
+
+    // تأكيد الحذف
+    async function confirmDelete(courseId) {
+      if (!confirm('هل أنت متأكد من حذف هذا المقرر؟')) return;
+
+      try {
+        // التحقق من عدم وجود جلسات مرتبطة (اختياري)
+        const { count, error: countError } = await supabaseClient
+          .from('sessions')
+          .select('*', { count: 'exact', head: true })
+          .eq('course_id', courseId);
+
+        if (countError) throw countError;
+
+        if (count > 0) {
+          if (!confirm('هذا المقرر يحتوي على جلسات مسجلة. هل أنت متأكد من الحذف؟')) return;
+        }
+
+        // حذف المقرر
+        const { error } = await supabaseClient
+          .from('courses')
+          .delete()
+          .eq('id', courseId)
+          .eq('instructor_id', currentInstructor.id); // تأكيد الملكية
+
+        if (error) throw error;
+
+        // إزالة المقرر من القائمة المحلية وإعادة العرض
+        courses = courses.filter(c => c.id !== courseId);
+        renderCourses();
+        showStatus('تم حذف المقرر بنجاح', 'success');
+      } catch (error) {
+        console.error('Delete error:', error);
+        showStatus('فشل حذف المقرر: ' + error.message, 'error');
+      }
+    }
+
+    // حفظ المقرر (إضافة أو تعديل)
+    async function saveCourse() {
+      // التحقق من المدخلات
+      let isValid = true;
+      hideErrors();
+
+      const name = courseNameInput.value.trim();
+      const code = courseCodeInput.value.trim();
+
+      if (!name) {
+        nameError.style.display = 'block';
+        courseNameInput.classList.add('error-border');
+        isValid = false;
+      }
+      if (!code) {
+        codeError.style.display = 'block';
+        courseCodeInput.classList.add('error-border');
+        isValid = false;
+      }
+
+      if (!isValid) return;
+
+      // بدء حالة التحميل
+      saveCourseBtn.disabled = true;
+      saveBtnText.textContent = 'جاري الحفظ...';
+      saveBtnLoader.classList.remove('hidden');
+
+      try {
+        const courseId = courseIdInput.value;
+        const courseData = {
+          name,
+          code,
+          instructor_id: currentInstructor.id
+        };
+
+        if (courseId) {
+          // تعديل
+          const { error } = await supabaseClient
+            .from('courses')
+            .update(courseData)
+            .eq('id', courseId)
+            .eq('instructor_id', currentInstructor.id);
+
+          if (error) throw error;
+
+          // تحديث القائمة المحلية
+          const index = courses.findIndex(c => c.id === courseId);
+          if (index !== -1) {
+            courses[index] = { ...courses[index], ...courseData };
+          }
+          showStatus('تم تعديل المقرر بنجاح', 'success');
+        } else {
+          // إضافة
+          const { data, error } = await supabaseClient
+            .from('courses')
+            .insert([courseData])
+            .select();
+
+          if (error) throw error;
+
+          if (data && data[0]) {
+            courses.unshift(data[0]); // إضافة للقائمة
+          }
+          showStatus('تم إضافة المقرر بنجاح', 'success');
+        }
+
+        // إعادة عرض المقررات
+        renderCourses();
+        courseModal.classList.add('hidden');
+      } catch (error) {
+        console.error('Save error:', error);
+        showStatus('فشل الحفظ: ' + error.message, 'error');
+      } finally {
+        saveCourseBtn.disabled = false;
+        saveBtnText.textContent = courseIdInput.value ? 'تحديث' : 'حفظ';
+        saveBtnLoader.classList.add('hidden');
+      }
+    }
+
+    // أحداث النوافذ المنبثقة
+    addCourseBtn.addEventListener('click', openAddModal);
+    saveCourseBtn.addEventListener('click', saveCourse);
+
+    const closeModal = () => {
+      courseModal.classList.add('hidden');
+      hideErrors();
+    };
+    closeModalBtn.addEventListener('click', closeModal);
+    cancelModalBtn.addEventListener('click', closeModal);
+
+    // إغلاق المودال عند النقر خارج المحتوى
+    courseModal.addEventListener('click', (e) => {
+      if (e.target === courseModal) closeModal();
+    });
+
+    // تحميل البيانات عند بدء الصفحة
+    loadCourses();
+
+
+  </script>
+</body>
+
+</html>

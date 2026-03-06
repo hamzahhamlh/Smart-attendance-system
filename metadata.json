@@ -1,0 +1,5 @@
+{
+  "name": "نظام الحضور الذكي",
+  "description": "نظام تسجيل حضور مبسط لجامعة الأمير سطام",
+  "requestFramePermissions": ["camera"] 
+}

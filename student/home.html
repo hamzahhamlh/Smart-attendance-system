@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>الرئيسية - نظام الحضور الذكي</title>
+
+	<!-- Tailwind CSS CDN -->
+	<script src="https://cdn.tailwindcss.com"></script>
+
+	<!-- Font Awesome -->
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+	<!-- Google Fonts: Cairo -->
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+
+	<!-- Supabase JS -->
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+	<style>
+		body {
+			font-family: 'Cairo', sans-serif;
+		}
+
+		.card-shadow {
+			box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+		}
+	</style>
+</head>
+
+<body class="bg-gray-50 min-h-screen p-6">
+
+	<div class="max-w-md mx-auto">
+
+		<!-- Header Section -->
+		<div class="flex items-center justify-between mb-8">
+			<div class="flex items-center gap-3">
+				<!-- Logout Button -->
+				<button id="logoutBtn" onclick="logout()"
+					class="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center text-white shadow-md hover:bg-red-600 transition">
+					<i class="fas fa-sign-out-alt text-lg"></i>
+				</button>
+				<!-- Profile Icon -->
+				<a href="profile.html"
+					class="w-12 h-12 bg-[#1a3a8a] rounded-full flex items-center justify-center text-white shadow-md">
+					<i class="fas fa-user text-xl"></i>
+				</a>
+			</div>
+			<div class="text-right">
+				<h1 class="text-2xl font-bold text-[#1a3a8a]">نظام الحضور الذكي</h1>
+				<p class="text-gray-500 text-xs">جامعة الأمير سطام بن عبدالعزيز</p>
+			</div>
+		</div>
+
+
+		<div id="locationStatus">
+			<div
+				class="bg-[#e8f5f1] rounded-2xl p-4 mb-10 flex items-center justify-start border border-[#d1e9e2] text-[#2d9d78]">
+				<i class="far fa-check-circle text-2xl"></i>
+				<div class="text-right mr-4">
+					<h3 class="font-bold text-sm">جاري التحقق من الموقع...</h3>
+					<p class="text-xs opacity-80">يرجى الانتظار</p>
+				</div>
+			</div>
+		</div>
+
+		<!-- Greeting Section -->
+		<div class="mb-10 text-right">
+			<h2 id="greetingName" class="text-3xl font-bold text-[#1a3a8a] mb-1">مرحباً أحمد محمد</h2>
+			<p class="text-gray-400 text-sm">ماذا تريد أن تفعل اليوم؟</p>
+		</div>
+
+		<!-- Action Cards Grid -->
+		<div class="grid grid-cols-2 gap-4 mb-10">
+			<!-- Scan QR Card -->
+			<a href="scan.html"
+				class="bg-white p-6 rounded-3xl flex flex-col items-center text-center card-shadow hover:scale-[1.02] transition-transform cursor-pointer">
+				<div class="w-12 h-12 bg-[#f0fdf4] rounded-xl flex items-center justify-center text-[#22c55e] mb-4">
+					<i class="fas fa-qrcode text-2xl"></i>
+				</div>
+				<h4 class="font-bold text-[#1a3a8a] text-sm">مسح رمز QR</h4>
+				<p class="text-gray-400 text-[10px]">سجل حضورك</p>
+			</a>
+			<!-- My Attendance Card -->
+			<a href="attendance.html"
+				class="bg-white p-6 rounded-3xl flex flex-col items-center text-center card-shadow hover:scale-[1.02] transition-transform cursor-pointer">
+				<div class="w-12 h-12 bg-[#eff6ff] rounded-xl flex items-center justify-center text-[#3b82f6] mb-4">
+					<i class="fas fa-clipboard-check text-2xl"></i>
+				</div>
+				<h4 class="font-bold text-[#1a3a8a] text-sm">حضوري</h4>
+				<p class="text-gray-400 text-[10px]">سجل الحضور</p>
+			</a>
+			<!-- Courses Card -->
+			<a href="courses.html"
+				class="bg-white p-6 rounded-3xl flex flex-col items-center text-center card-shadow hover:scale-[1.02] transition-transform cursor-pointer">
+				<div class="w-12 h-12 bg-[#eff6ff] rounded-xl flex items-center justify-center text-[#3b82f6] mb-4">
+					<i class="fas fa-book text-2xl"></i>
+				</div>
+				<h4 class="font-bold text-[#1a3a8a] text-sm">المقررات</h4>
+				<p class="text-gray-400 text-[10px]">مقرراتي</p>
+			</a>
+			<!-- Settings Card -->
+			<a href="profile.html"
+				class="bg-white p-6 rounded-3xl flex flex-col items-center text-center card-shadow hover:scale-[1.02] transition-transform cursor-pointer">
+				<div class="w-12 h-12 bg-[#f8fafc] rounded-xl flex items-center justify-center text-gray-500 mb-4">
+					<i class="fas fa-cog text-2xl"></i>
+				</div>
+				<h4 class="font-bold text-[#1a3a8a] text-sm">الإعدادات</h4>
+				<p class="text-gray-400 text-[10px]">الإعدادات</p>
+			</a>
+		</div>
+
+		<!-- Quick Stats Section -->
+		<div class="bg-white rounded-3xl p-6 card-shadow">
+			<h3 class="text-lg font-bold text-[#1a3a8a] mb-6 text-right">إحصائيات سريعة</h3>
+			<div class="flex justify-around items-center">
+				<div class="flex flex-col items-center">
+					<div id="presentCount"
+						class="w-12 h-12 bg-[#f0fdf4] rounded-full flex items-center justify-center text-[#22c55e] font-bold mb-2">0
+					</div>
+					<span class="text-[10px] text-gray-400">حاضر</span>
+				</div>
+				<div class="flex flex-col items-center">
+					<div id="attendancePercent"
+						class="w-16 h-16 bg-[#eff6ff] rounded-full flex items-center justify-center text-[#3b82f6] font-bold text-lg mb-2">
+						0%</div>
+					<span class="text-[10px] text-gray-400">النسبة</span>
+				</div>
+				<div class="flex flex-col items-center">
+					<div id="absentCount"
+						class="w-12 h-12 bg-[#fef2f2] rounded-full flex items-center justify-center text-[#ef4444] font-bold mb-2">0
+					</div>
+					<span class="text-[10px] text-gray-400">غائب</span>
+				</div>
+			</div>
+		</div>
+
+	</div>
+
+	<script src="../src/config.js"></script>
+	<script src="../src/auth.js"></script>
+	<script src="../src/functions.js"></script>
+	<script>
+		const { createClient } = supabase;
+		const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+		let currentStudent = null;
+
+		// التحقق من الجلسة باستخدام الدالة من auth.js
+		const auth = checkAuth('student');
+		if (!auth) {
+			// إذا أعادت null، فهذا يعني أنه تم إعادة التوجيه، نوقف التنفيذ
+			throw new Error('Redirecting...');
+		}
+		currentStudent = auth.user;
+
+		// تحديث واجهة المستخدم بالاسم
+		updateUI();
+		loadStats();
+
+		// جلب الإحصائيات
+		async function loadStats() {
+			if (!currentStudent) return;
+
+			try {
+				// 1. جلب جميع المقررات التي سجل فيها الطالب
+				const { data: enrollments, error: enrollError } = await supabaseClient
+					.from('enrollments')
+					.select('course_id')
+					.eq('student_id', currentStudent.id);
+
+				if (enrollError) throw enrollError;
+
+				// إذا لم يكن الطالب مسجلاً في أي مقرر
+				if (!enrollments || enrollments.length === 0) {
+					document.getElementById('presentCount').textContent = '0';
+					document.getElementById('absentCount').textContent = '0';
+					document.getElementById('attendancePercent').textContent = '0%';
+					return;
+				}
+
+				const courseIds = enrollments.map(e => e.course_id);
+
+				// 2. حساب عدد جلسات الحضور (sessions) لكل مقرر
+				const { data: sessions, error: sessionsError } = await supabaseClient
+					.from('sessions')
+					.select('id, course_id')
+					.in('course_id', courseIds);
+
+				if (sessionsError) throw sessionsError;
+
+				const totalLectures = sessions.length; // إجمالي المحاضرات المتاحة لهذه المقررات
+
+				// 3. عدد مرات الحضور الفعلية للطالب
+				const { count: presentCount, error: presentError } = await supabaseClient
+					.from('attendance')
+					.select('*', { count: 'exact', head: true })
+					.eq('student_id', currentStudent.id);
+
+				if (presentError) throw presentError;
+
+				const present = presentCount || 0;
+				const absent = Math.max(totalLectures - present, 0);
+				const percentage = totalLectures > 0 ? ((present / totalLectures) * 100).toFixed(1) : 0;
+
+				document.getElementById('presentCount').textContent = present;
+				document.getElementById('absentCount').textContent = absent;
+				document.getElementById('attendancePercent').textContent = `${percentage}%`;
+
+			} catch (error) {
+				console.error('Error loading stats:', error);
+				// عرض رسالة خطأ للمستخدم (اختياري)
+				document.getElementById('presentCount').textContent = '!';
+				document.getElementById('absentCount').textContent = '!';
+				document.getElementById('attendancePercent').textContent = '!%';
+			}
+		}
+
+		function updateUI() {
+			if (currentStudent) {
+				document.getElementById('greetingName').textContent = `مرحباً ${currentStudent.name || 'طالب'}`;
+			}
+		}
+
+
+
+
+
+	</script>
+</body>
+
+</html>

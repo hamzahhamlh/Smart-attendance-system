@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>لوحة التحكم - المحاضر</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: 'Cairo', sans-serif;
+    }
+
+    .card-shadow {
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    }
+  </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen p-6">
+
+  <div class="max-w-md mx-auto">
+
+    <!-- Header Section -->
+    <div class="flex items-center justify-between mb-8">
+      <div class="flex items-center gap-3">
+        <!-- Logout Button -->
+        <button id="logoutBtn"
+          class="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center text-white shadow-md hover:bg-red-600 transition">
+          <i class="fas fa-sign-out-alt text-lg"></i>
+        </button>
+        <!-- Profile Icon -->
+        <a href="profile.html"
+          class="w-12 h-12 bg-[#1a3a8a] rounded-full flex items-center justify-center text-white shadow-md">
+          <i class="fas fa-user text-xl"></i>
+        </a>
+      </div>
+      <div class="text-right">
+        <h1 class="text-2xl font-bold text-[#1a3a8a]">نظام الحضور الذكي</h1>
+        <p class="text-gray-500 text-xs">جامعة الأمير سطام بن عبدالعزيز</p>
+      </div>
+    </div>
+
+    <!-- Location Status Bar (سيتم تحديثها بواسطة checkLocation) -->
+    <div id="locationStatus">
+      <div class="bg-[#e8f5f1] rounded-2xl p-4 mb-10 flex items-center justify-between border border-[#d1e9e2]">
+        <div class="flex items-center gap-4">
+          <div class="w-10 h-10 bg-[#d1e9e2] rounded-xl flex items-center justify-center text-[#2d9d78]">
+            <i class="fas fa-map-marker-alt"></i>
+          </div>
+          <div class="text-right">
+            <h3 class="text-[#2d9d78] font-bold text-sm">جاري التحقق من الموقع...</h3>
+            <p class="text-[#2d9d78] text-xs opacity-80">يرجى الانتظار</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Greeting Section -->
+    <div class="mb-10 text-right">
+      <h2 id="greetingName" class="text-3xl font-bold text-[#1a3a8a] mb-1">مرحباً د. فهد العتيبي</h2>
+      <p class="text-gray-400 text-sm">ماذا تريد أن تفعل اليوم؟</p>
+    </div>
+
+    <!-- Action Cards Grid -->
+    <div class="grid grid-cols-2 gap-4 mb-10">
+      <!-- Create QR Card -->
+      <a href="create-qr.html"
+        class="bg-white p-6 rounded-3xl flex flex-col items-center text-center card-shadow hover:scale-[1.02] transition-transform cursor-pointer">
+        <div class="w-12 h-12 bg-[#f0fdf4] rounded-xl flex items-center justify-center text-[#22c55e] mb-4">
+          <i class="fas fa-qrcode text-2xl"></i>
+        </div>
+        <h4 class="font-bold text-[#1a3a8a] text-sm">إنشاء رمز QR</h4>
+        <p class="text-gray-400 text-[10px]">لجلسة جديدة</p>
+      </a>
+
+      <!-- Attendance Report Card -->
+      <a href="report.html"
+        class="bg-white p-6 rounded-3xl flex flex-col items-center text-center card-shadow hover:scale-[1.02] transition-transform cursor-pointer">
+        <div class="w-12 h-12 bg-[#eff6ff] rounded-xl flex items-center justify-center text-[#1a3a8a] mb-4">
+          <i class="fas fa-chart-bar text-2xl"></i>
+        </div>
+        <h4 class="font-bold text-[#1a3a8a] text-sm">تقرير الحضور</h4>
+        <p class="text-gray-400 text-[10px]">تقارير المقررات</p>
+      </a>
+
+      <!-- Courses Card -->
+      <a href="courses.html"
+        class="bg-white p-6 rounded-3xl flex flex-col items-center text-center card-shadow hover:scale-[1.02] transition-transform cursor-pointer">
+        <div class="w-12 h-12 bg-[#eff6ff] rounded-xl flex items-center justify-center text-[#3b82f6] mb-4">
+          <i class="fas fa-book text-2xl"></i>
+        </div>
+        <h4 class="font-bold text-[#1a3a8a] text-sm">المقررات</h4>
+        <p class="text-gray-400 text-[10px]">مقرراتي الدراسية</p>
+      </a>
+
+      <!-- Settings Card -->
+      <a href="profile.html"
+        class="bg-white p-6 rounded-3xl flex flex-col items-center text-center card-shadow hover:scale-[1.02] transition-transform cursor-pointer">
+        <div class="w-12 h-12 bg-[#f8fafc] rounded-xl flex items-center justify-center text-gray-500 mb-4">
+          <i class="fas fa-cog text-2xl"></i>
+        </div>
+        <h4 class="font-bold text-[#1a3a8a] text-sm">الإعدادات</h4>
+        <p class="text-gray-400 text-[10px]">الملف الشخصي</p>
+      </a>
+    </div>
+
+    <!-- Quick Stats Section -->
+    <div class="bg-white rounded-3xl p-6 card-shadow">
+      <h3 class="text-lg font-bold text-[#1a3a8a] mb-6 text-right">إحصائيات سريعة</h3>
+      <div class="grid grid-cols-3 gap-2 text-center">
+        <div class="flex flex-col items-center">
+          <div id="coursesCount"
+            class="w-12 h-12 bg-[#eff6ff] rounded-full flex items-center justify-center text-[#3b82f6] font-bold text-xl mb-2">
+            0</div>
+          <span class="text-[10px] text-gray-400">المقررات</span>
+        </div>
+        <div class="flex flex-col items-center">
+          <div id="todaySessions"
+            class="w-12 h-12 bg-[#f0fdf4] rounded-full flex items-center justify-center text-[#22c55e] font-bold text-xl mb-2">
+            0</div>
+          <span class="text-[10px] text-gray-400">جلسات اليوم</span>
+        </div>
+        <div class="flex flex-col items-center">
+          <div id="totalSessions"
+            class="w-12 h-12 bg-[#fef2f2] rounded-full flex items-center justify-center text-[#ef4444] font-bold text-xl mb-2">
+            0</div>
+          <span class="text-[10px] text-gray-400">إجمالي الجلسات</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Message Toast (سيتم استخدامه بواسطة showStatus) -->
+    <div id="statusMessage"
+      class="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 hidden px-6 py-3 rounded-xl font-bold shadow-lg text-center">
+    </div>
+
+  </div>
+
+  <script src="../src/config.js"></script>
+  <script src="../src/auth.js"></script>
+  <script src="../src/functions.js"></script>
+  <script>
+    const { createClient } = supabase;
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let currentInstructor = null;
+
+    // التحقق من الجلسة ونوع المستخدم (instructor)
+    const auth = checkAuth('instructor');
+    if (!auth) {
+      throw new Error('Redirecting...');
+    }
+    currentInstructor = auth.user;
+
+    // تحديث واجهة المستخدم
+    updateUI();
+    loadStats();
+
+    function updateUI() {
+      if (currentInstructor) {
+        document.getElementById('greetingName').textContent = `مرحباً ${currentInstructor.name || 'دكتور'}`;
+      }
+    }
+
+    // تحميل الإحصائيات
+    async function loadStats() {
+      try {
+        // 1. عدد المقررات التي يدرسها المحاضر
+        const { count: coursesCount, error: coursesError } = await supabaseClient
+          .from('courses')
+          .select('*', { count: 'exact', head: true })
+          .eq('instructor_id', currentInstructor.id);
+
+        if (coursesError) throw coursesError;
+
+        // 2. جلب جميع المقررات أولاً ثم جلب الجلسات المرتبطة بها
+        const { data: courses, error: coursesDataError } = await supabaseClient
+          .from('courses')
+          .select('id')
+          .eq('instructor_id', currentInstructor.id);
+
+        if (coursesDataError) throw coursesDataError;
+
+        const courseIds = courses.map(c => c.id);
+
+        let todaySessionsCount = 0;
+        let totalSessionsCount = 0;
+
+        if (courseIds.length > 0) {
+          // 3. إجمالي الجلسات
+          const { count: total, error: totalError } = await supabaseClient
+            .from('sessions')
+            .select('*', { count: 'exact', head: true })
+            .in('course_id', courseIds);
+
+          if (totalError) throw totalError;
+          totalSessionsCount = total || 0;
+
+          // 4. جلسات اليوم (حسب التاريخ الحالي)
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const tomorrow = new Date(today);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+
+          const { count: todayCount, error: todayError } = await supabaseClient
+            .from('sessions')
+            .select('*', { count: 'exact', head: true })
+            .in('course_id', courseIds)
+            .gte('start_time', today.toISOString())
+            .lt('start_time', tomorrow.toISOString());
+
+          if (todayError) throw todayError;
+          todaySessionsCount = todayCount || 0;
+        }
+
+        document.getElementById('coursesCount').textContent = coursesCount || 0;
+        document.getElementById('todaySessions').textContent = todaySessionsCount;
+        document.getElementById('totalSessions').textContent = totalSessionsCount;
+
+      } catch (error) {
+        console.error('Error loading stats:', error);
+        document.getElementById('coursesCount').textContent = '!';
+        document.getElementById('todaySessions').textContent = '!';
+        document.getElementById('totalSessions').textContent = '!';
+      }
+    }
+
+
+    // تسجيل الخروج
+    document.getElementById('logoutBtn').addEventListener('click', function () {
+      logout(); // من auth.js
+    });
+
+
+  </script>
+</body>
+
+</html>

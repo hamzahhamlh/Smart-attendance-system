@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>حضوري - نظام الحضور الذكي</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+        }
+
+        .tab-active {
+            border-bottom: 4px solid white;
+            color: white;
+        }
+
+        .tab-inactive {
+            color: rgba(255, 255, 255, 0.7);
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- Navbar -->
+    <div class="bg-[#1a3a8a] text-white p-4 flex items-center justify-between sticky top-0 z-10 shadow-md">
+        <a href="home.html" class="text-xl hover:opacity-80 transition">
+            <i class="fas fa-arrow-right"></i>
+        </a>
+        <h1 class="text-lg font-bold">حضوري</h1>
+        <div class="w-6"></div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="bg-[#1a3a8a] text-white/70 flex justify-around items-center pt-2 pb-0" id="tabsContainer">
+        <button class="px-6 py-2 tab-active" data-filter="all">الكل</button>
+        <button class="px-6 py-2 tab-inactive" data-filter="present">الحاضر</button>
+        <button class="px-6 py-2 tab-inactive" data-filter="absent">الغائب</button>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-md mx-auto p-6" id="attendanceContainer">
+        <!-- رسالة التحميل / الحالة الفارغة سيتم ملؤها ديناميكياً -->
+        <div id="loadingMessage" class="text-center text-gray-400 py-10">
+            <i class="fas fa-spinner fa-spin text-3xl mb-3"></i>
+            <p>جاري تحميل سجل الحضور...</p>
+        </div>
+    </div>
+
+    <!-- Template for session card -->
+    <template id="sessionCardTemplate">
+        <div class="bg-white rounded-3xl p-5 shadow-sm flex items-start gap-4 session-card mb-2" data-status="">
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 icon-container">
+                <!-- الأيقونة ستتغير حسب الحالة (حاضر/غائب) -->
+                <i class="fas fa-check text-xl"></i>
+            </div>
+            <div class="flex-1 text-right">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="font-bold text-gray-800 course-name">اسم المقرر</h3>
+                        <p class="text-xs text-gray-500 course-code">رمز المقرر</p>
+                    </div>
+                    <span class="text-xs font-bold px-2 py-1 rounded-full status-badge">حالة</span>
+                </div>
+                <div class="flex items-center gap-2 mt-2 text-xs text-gray-400">
+                    <i class="far fa-calendar-alt"></i>
+                    <span class="session-date">التاريخ</span>
+                    <i class="far fa-clock mr-2"></i>
+                    <span class="session-time">الوقت</span>
+                </div>
+                <div class="flex items-center gap-2 mt-1 text-xs text-gray-400">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <span class="session-location">القاعة: غير محدد</span>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- scripts -->
+    <script src="../src/config.js"></script>
+    <script src="../src/auth.js"></script>
+    <script src="../src/functions.js"></script>
+    <script>
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let currentStudent = null;
+        let allSessions = []; // جميع الجلسات مع بياناتها والحضور
+        let currentFilter = 'all'; // all, present, absent
+
+        // التحقق من الجلسة ونوع المستخدم
+        const auth = checkAuth('student');
+        if (!auth) {
+            throw new Error('Redirecting...');
+        }
+        currentStudent = auth.user;
+
+        // تحميل البيانات
+        loadAttendanceData();
+
+        // إضافة مستمعي الأحداث للتبويبات
+        document.getElementById('tabsContainer').addEventListener('click', (e) => {
+            const button = e.target.closest('button');
+            if (!button) return;
+
+            const filter = button.dataset.filter;
+            if (!filter) return;
+
+            // تحديث التبويبات النشطة
+            document.querySelectorAll('#tabsContainer button').forEach(btn => {
+                btn.classList.remove('tab-active');
+                btn.classList.add('tab-inactive');
+            });
+            button.classList.remove('tab-inactive');
+            button.classList.add('tab-active');
+
+            currentFilter = filter;
+            renderSessions();
+        });
+
+        /**
+         * تحميل بيانات الحضور:
+         * - جلب جميع الجلسات (sessions) للمقررات التي سجل فيها الطالب
+         * - جلب سجلات الحضور الخاصة بالطالب
+         * - دمجها لتحديد الحالة لكل جلسة
+         */
+        async function loadAttendanceData() {
+            const loadingEl = document.getElementById('loadingMessage');
+            const container = document.getElementById('attendanceContainer');
+
+            try {
+                // 1. جلب جميع المقررات التي سجل فيها الطالب
+                const { data: enrollments, error: enrollError } = await supabaseClient
+                    .from('enrollments')
+                    .select('course_id')
+                    .eq('student_id', currentStudent.id);
+
+                if (enrollError) throw enrollError;
+
+                if (!enrollments || enrollments.length === 0) {
+                    // لا يوجد مقررات مسجل فيها
+                    showEmptyState('لم تسجل في أي مقرر بعد', 'قم بتسجيل المقررات أولاً');
+                    loadingEl.style.display = 'none';
+                    return;
+                }
+
+                const courseIds = enrollments.map(e => e.course_id);
+
+                // 2. جلب جميع الجلسات لهذه المقررات مع بيانات المقرر
+                const { data: sessions, error: sessionsError } = await supabaseClient
+                    .from('sessions')
+                    .select(`
+                        id,
+                        start_time,
+                        end_time,
+                        qr_token,
+                        course_id,
+                        courses (
+                            id,
+                            code,
+                            name
+                        )
+                    `)
+                    .in('course_id', courseIds)
+                    .order('start_time', { ascending: false });
+
+                if (sessionsError) throw sessionsError;
+
+                if (!sessions || sessions.length === 0) {
+                    showEmptyState('لا توجد جلسات متاحة', 'لم يتم إنشاء أي جلسات لهذه المقررات بعد');
+                    loadingEl.style.display = 'none';
+                    return;
+                }
+
+                // 3. جلب سجلات الحضور للطالب
+                const { data: attendanceRecords, error: attendanceError } = await supabaseClient
+                    .from('attendance')
+                    .select('session_id, created_at')
+                    .eq('student_id', currentStudent.id);
+
+                if (attendanceError) throw attendanceError;
+
+                // إنشاء Set للجلسات التي حضرها الطالب
+                const attendedSessionIds = new Set(attendanceRecords.map(rec => rec.session_id));
+
+                // 4. دمج البيانات مع إضافة الحالة لكل جلسة
+                allSessions = sessions.map(session => {
+                    const isPresent = attendedSessionIds.has(session.id);
+                    return {
+                        ...session,
+                        status: isPresent ? 'present' : 'absent',
+                        // تنسيق التاريخ والوقت
+                        date: new Date(session.start_time).toLocaleDateString('ar-SA'),
+                        time: new Date(session.start_time).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }),
+                    };
+                });
+
+                // إخفاء التحميل وعرض النتائج
+                loadingEl.style.display = 'none';
+                renderSessions();
+
+            } catch (error) {
+                console.error('Error loading attendance:', error);
+                loadingEl.style.display = 'none';
+                container.innerHTML = `
+                    <div class="bg-white rounded-3xl p-10 text-center shadow-sm border border-red-200">
+                        <i class="fas fa-exclamation-triangle text-4xl text-red-400 mb-3"></i>
+                        <p class="text-red-600 font-bold">حدث خطأ أثناء تحميل البيانات</p>
+                        <p class="text-xs text-gray-500 mt-2">يرجى المحاولة مرة أخرى لاحقاً</p>
+                        <button onclick="location.reload()" class="mt-4 bg-[#1a3a8a] text-white px-6 py-2 rounded-xl text-sm hover:bg-[#142d6b] transition">
+                            إعادة المحاولة
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        /**
+         * عرض الجلسات حسب الفلتر الحالي
+         */
+        function renderSessions() {
+            const container = document.getElementById('attendanceContainer');
+            const loadingEl = document.getElementById('loadingMessage');
+
+            // تصفية الجلسات حسب الفلتر
+            let filteredSessions = allSessions;
+            if (currentFilter === 'present') {
+                filteredSessions = allSessions.filter(s => s.status === 'present');
+            } else if (currentFilter === 'absent') {
+                filteredSessions = allSessions.filter(s => s.status === 'absent');
+            }
+
+            // إذا لم توجد نتائج بعد التصفية
+            if (filteredSessions.length === 0) {
+                let message = 'لا توجد جلسات';
+                let subMessage = '';
+                if (currentFilter === 'present') {
+                    message = 'لا توجد جلسات حضرتها';
+                    subMessage = 'قم بمسح رمز QR لحضور المحاضرات';
+                } else if (currentFilter === 'absent') {
+                    message = 'لا توجد جلسات غائب عنها';
+                    subMessage = 'جميع الجلسات حضرتها أو لم تُعقد بعد';
+                } else {
+                    message = 'لا توجد جلسات متاحة';
+                    subMessage = 'سيتم إضافة الجلسات قريباً';
+                }
+                container.innerHTML = `
+                    <div class="bg-white rounded-3xl p-12 shadow-sm flex flex-col items-center space-y-6 text-center">
+                        <div class="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-400">
+                            <i class="far fa-clipboard text-4xl"></i>
+                        </div>
+                        <div class="space-y-2">
+                            <h3 class="text-xl font-bold text-gray-500">${message}</h3>
+                            <p class="text-gray-400 text-sm">${subMessage}</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            // مسح المحتوى الحالي مع الاحتفاظ برسالة التحميل (سنخفيها لاحقاً)
+            container.innerHTML = '';
+            // إعادة إضافة عنصر التحميل (مخفي) حتى لا نفقد المرجع
+            container.appendChild(loadingEl);
+            loadingEl.style.display = 'none';
+
+            // استنساخ القالب لكل جلسة
+            const template = document.getElementById('sessionCardTemplate');
+
+            filteredSessions.forEach(session => {
+                const card = template.content.cloneNode(true);
+                const cardDiv = card.querySelector('.session-card');
+                cardDiv.dataset.status = session.status;
+
+                // تعيين الأيقونة واللون حسب الحالة
+                const iconContainer = card.querySelector('.icon-container');
+                const icon = card.querySelector('.icon-container i');
+                const statusBadge = card.querySelector('.status-badge');
+
+                if (session.status === 'present') {
+                    iconContainer.classList.add('bg-green-100', 'text-green-600');
+                    icon.classList.remove('fa-check', 'fa-times');
+                    icon.classList.add('fa-check-circle');
+                    statusBadge.textContent = 'حاضر';
+                    statusBadge.classList.add('bg-green-100', 'text-green-600');
+                } else {
+                    iconContainer.classList.add('bg-red-100', 'text-red-600');
+                    icon.classList.remove('fa-check', 'fa-times');
+                    icon.classList.add('fa-times-circle');
+                    statusBadge.textContent = 'غائب';
+                    statusBadge.classList.add('bg-red-100', 'text-red-600');
+                }
+
+                // تعبئة البيانات
+                card.querySelector('.course-name').textContent = session.courses?.name || 'بدون اسم';
+                card.querySelector('.course-code').textContent = session.courses?.code || 'بدون رمز';
+                card.querySelector('.session-date').textContent = session.date;
+                card.querySelector('.session-time').textContent = session.time;
+
+                // الموقع: يمكن تحسينه لاحقاً إذا أضفنا حقل موقع في جدول sessions
+                card.querySelector('.session-location').textContent = 'القاعة: مبنى 15 - قاعة غير محددة';
+
+                container.appendChild(card);
+            });
+        }
+
+        /**
+         * عرض حالة فارغة (لا يوجد مقررات أو لا يوجد جلسات)
+         */
+        function showEmptyState(title, message) {
+            const container = document.getElementById('attendanceContainer');
+            container.innerHTML = `
+                <div class="bg-white rounded-3xl p-12 shadow-sm flex flex-col items-center space-y-6 text-center">
+                    <div class="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-400">
+                        <i class="far fa-clipboard text-4xl"></i>
+                    </div>
+                    <div class="space-y-2">
+                        <h3 class="text-xl font-bold text-gray-500">${title}</h3>
+                        <p class="text-gray-400 text-sm">${message}</p>
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+
+</html>

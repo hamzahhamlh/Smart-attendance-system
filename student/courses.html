@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>المقررات - نظام الحضور الذكي</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+    <!-- Google Fonts: Cairo -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+        }
+
+        .card-shadow {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        /* شريط التقدم المخصص */
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background-color: #e5e7eb;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: #22c55e;
+            border-radius: 999px;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- Navbar -->
+    <div class="bg-[#1a3a8a] text-white p-4 flex items-center justify-between sticky top-0 z-10 shadow-md">
+        <a href="home.html" class="text-xl hover:opacity-80 transition">
+            <i class="fas fa-arrow-right"></i>
+        </a>
+        <h1 class="text-lg font-bold">المقررات الدراسية</h1>
+        <div class="w-6"></div> <!-- فراغ للتوازن -->
+    </div>
+
+    <!-- المحتوى الرئيسي -->
+    <div class="max-w-md mx-auto p-6 space-y-6" id="coursesContainer">
+        <!-- رسالة التحميل أو عدم وجود بيانات ستُعرض هنا ديناميكياً -->
+        <div class="text-center text-gray-400 py-10" id="loadingMessage">
+            <i class="fas fa-spinner fa-spin text-3xl mb-3"></i>
+            <p>جاري تحميل المقررات...</p>
+        </div>
+    </div>
+
+    <!-- قالب بطاقة المقرر (سيتم استنساخه بواسطة JavaScript) -->
+    <template id="courseCardTemplate">
+        <div class="bg-white rounded-3xl p-6 card-shadow flex flex-col space-y-6 course-card">
+            <!-- رأس البطاقة: أيقونة + اسم المقرر والرمز -->
+            <div class="flex items-start justify-start gap-4">
+                <div class="w-12 h-12 bg-[#eff6ff] rounded-xl flex items-center justify-center text-[#3b82f6] shrink-0">
+                    <i class="fas fa-book text-2xl"></i>
+                </div>
+                <div class="text-right">
+                    <h2 class="text-xl font-bold text-[#1a3a8a] course-name">اسم المقرر</h2>
+                    <p class="text-gray-400 text-sm course-code">رمز المقرر</p>
+                </div>
+            </div>
+
+            <!-- تفاصيل المقرر: قاعة، جدول، وصف -->
+            <div class="space-y-4 text-sm">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-map-marker-alt text-gray-400 w-5"></i>
+                    <span class="text-gray-600 course-room">القاعة: غير محدد</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <i class="far fa-clock text-gray-400 w-5"></i>
+                    <span class="text-gray-600 course-schedule">الجدول: غير محدد</span>
+                </div>
+                <div class="flex items-start gap-3">
+                    <i class="far fa-file-alt text-gray-400 w-5 mt-1"></i>
+                    <span class="text-gray-600 course-description leading-relaxed">وصف المقرر: غير متوفر</span>
+                </div>
+            </div>
+
+            <!-- إحصائيات الحضور للمقرر -->
+            <div class="border-t border-gray-100 pt-4">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-medium text-gray-500">نسبة الحضور</span>
+                    <span class="text-xs font-bold text-[#1a3a8a] course-percentage">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill course-progress" style="width: 0%;"></div>
+                </div>
+                <div class="flex justify-between mt-2 text-xs text-gray-400">
+                    <span class="course-attended">0</span>
+                    <span>من</span>
+                    <span class="course-total">0</span>
+                    <span>محاضرة</span>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- scripts -->
+    <script src="../src/config.js"></script>
+    <script src="../src/auth.js"></script>
+    <script src="../src/functions.js"></script>
+    <script>
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let currentStudent = null;
+
+        // التحقق من الجلسة ونوع المستخدم
+        const auth = checkAuth('student');
+        if (!auth) {
+            // تم إعادة التوجيه
+            throw new Error('Redirecting...');
+        }
+        currentStudent = auth.user;
+
+        // بدء تحميل البيانات
+        loadCourses();
+
+        /**
+         * تحميل المقررات المسجل فيها الطالب مع إحصائيات الحضور لكل مقرر
+         */
+        async function loadCourses() {
+            const container = document.getElementById('coursesContainer');
+            const loadingMsg = document.getElementById('loadingMessage');
+
+            try {
+                // 1. جلب جميع تسجيلات الطالب في المقررات (enrollments) مع بيانات المقرر والمحاضر
+                const { data: enrollments, error: enrollError } = await supabaseClient
+                    .from('enrollments')
+                    .select(`
+                        course_id,
+                        courses (
+                            id,
+                            code,
+                            name
+                            instructor_id,
+                            instructors (
+                                name
+                            )
+                        )
+                    `)
+                    .eq('student_id', currentStudent.id);
+
+                if (enrollError) throw enrollError;
+
+                // إخفاء رسالة التحميل
+                loadingMsg.style.display = 'none';
+
+                // إذا لم يكن هناك أي تسجيلات
+                if (!enrollments || enrollments.length === 0) {
+                    container.innerHTML = `
+                        <div class="bg-white rounded-3xl p-10 text-center card-shadow">
+                            <i class="fas fa-book-open text-5xl text-gray-300 mb-4"></i>
+                            <p class="text-gray-500">لم تسجل في أي مقرر بعد</p>
+                            <p class="text-xs text-gray-400 mt-2">يمكنك التواصل مع شؤون الطلاب لتسجيل المقررات</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // 2. تجهيز قائمة بأسماء المقررات (course_ids) لجلب جلسات الحضور لكل مقرر
+                const courseIds = enrollments.map(e => e.course_id);
+                
+                // 3. جلب جميع جلسات الحضور (sessions) لهذه المقررات
+                const { data: allSessions, error: sessionsError } = await supabaseClient
+                    .from('sessions')
+                    .select('id, course_id')
+                    .in('course_id', courseIds);
+
+                if (sessionsError) throw sessionsError;
+
+                // تجميع الجلسات حسب course_id لتسهيل الوصول
+                const sessionsByCourse = {};
+                allSessions.forEach(session => {
+                    if (!sessionsByCourse[session.course_id]) {
+                        sessionsByCourse[session.course_id] = [];
+                    }
+                    sessionsByCourse[session.course_id].push(session.id);
+                });
+
+                // 4. جلب جميع سجلات الحضور لهذا الطالب
+                const { data: attendanceRecords, error: attendanceError } = await supabaseClient
+                    .from('attendance')
+                    .select('session_id')
+                    .eq('student_id', currentStudent.id);
+
+                if (attendanceError) throw attendanceError;
+
+                // إنشاء Set لمعرفة الجلسات التي حضرها الطالب (للبحث السريع)
+                const attendedSessionIds = new Set(attendanceRecords.map(rec => rec.session_id));
+
+                // 5. إنشاء بطاقات المقررات ديناميكياً
+                container.innerHTML = ''; // مسح المحتوى
+
+                // استنساخ القالب لكل مقرر
+                const template = document.getElementById('courseCardTemplate');
+
+                for (const enrollment of enrollments) {
+                    const course = enrollment.courses;
+                    if (!course) continue; // إذا كان المقرر محذوفاً لسبب ما
+
+                    const courseId = course.id;
+
+                    // جلسات هذا المقرر
+                    const sessionIds = sessionsByCourse[courseId] || [];
+                    const totalSessions = sessionIds.length;
+
+                    // عدد الجلسات التي حضرها الطالب لهذا المقرر
+                    let attendedCount = 0;
+                    sessionIds.forEach(sid => {
+                        if (attendedSessionIds.has(sid)) attendedCount++;
+                    });
+
+                    const percentage = totalSessions > 0 ? ((attendedCount / totalSessions) * 100).toFixed(1) : 0;
+
+                    // استنساخ القالب وملء البيانات
+                    const card = template.content.cloneNode(true);
+
+                    // تعبئة النصوص
+                    card.querySelector('.course-name').textContent = course.name || 'بدون اسم';
+                    card.querySelector('.course-code').textContent = course.code || 'بدون رمز';
+                    
+                    // معلومات إضافية (يمكن إضافتها في قاعدة البيانات لاحقاً، حالياً نضع نصوصاً افتراضية)
+                    card.querySelector('.course-room').textContent = course.location  || 'غير معين'; // مؤقت
+                    card.querySelector('.course-schedule').textContent = `الجدول: ${['الأحد - الثلاثاء', 'الإثنين - الأربعاء'][Math.floor(Math.random() * 2)]} 8:00 صباحاً`; // مؤقت
+                    card.querySelector('.course-description').textContent = `المحاضر: ${course.instructors?.name || 'غير معين'}`;
+
+                    // إحصائيات
+                    card.querySelector('.course-attended').textContent = attendedCount;
+                    card.querySelector('.course-total').textContent = totalSessions;
+                    card.querySelector('.course-percentage').textContent = `${percentage}%`;
+                    card.querySelector('.course-progress').style.width = `${percentage}%`;
+
+                    // تغيير لون الشريط حسب النسبة (أخضر > 75%، أصفر > 50%، أحمر أقل)
+                    const progressFill = card.querySelector('.progress-fill');
+                    if (percentage < 50) {
+                        progressFill.style.backgroundColor = '#ef4444'; // أحمر
+                    } else if (percentage < 75) {
+                        progressFill.style.backgroundColor = '#eab308'; // أصفر
+                    } else {
+                        progressFill.style.backgroundColor = '#22c55e'; // أخضر
+                    }
+
+                    container.appendChild(card);
+                }
+
+            } catch (error) {
+                console.error('Error loading courses:', error);
+                loadingMsg.style.display = 'none';
+                container.innerHTML = `
+                    <div class="bg-white rounded-3xl p-10 text-center card-shadow border border-red-200">
+                        <i class="fas fa-exclamation-triangle text-4xl text-red-400 mb-3"></i>
+                        <p class="text-red-600 font-bold">حدث خطأ أثناء تحميل المقررات</p>
+                        <p class="text-xs text-gray-500 mt-2">يرجى المحاولة مرة أخرى لاحقاً</p>
+                        <button onclick="location.reload()" class="mt-4 bg-[#1a3a8a] text-white px-6 py-2 rounded-xl text-sm hover:bg-[#142d6b] transition">
+                            إعادة المحاولة
+                        </button>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+
+</html>

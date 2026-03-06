@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>مسح رمز الاستجابة السريعة - نظام الحضور الذكي</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <!-- Google Fonts: Cairo -->
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+  <!-- Html5QrCode library -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: 'Cairo', sans-serif;
+    }
+
+    .card-shadow {
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    }
+
+    #reader {
+      border: none !important;
+      border-radius: 2rem !important;
+      overflow: hidden !important;
+      background: #000 !important;
+      aspect-ratio: 1/1;
+      width: 100%;
+    }
+
+    #reader video {
+      border-radius: 2rem;
+      object-fit: cover;
+    }
+
+    .camera-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border: 3px solid #1a3a8a;
+      border-radius: 2rem;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .error-border {
+      border-color: #ef4444 !important;
+    }
+
+    .error-text {
+      color: #ef4444;
+      font-size: 0.75rem;
+      margin-top: 0.25rem;
+      margin-right: 0.25rem;
+      display: none;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+
+  <!-- Navbar -->
+  <div class="bg-[#1a3a8a] text-white p-4 flex items-center justify-between sticky top-0 z-20">
+    <a href="home.html" class="text-xl hover:opacity-80 transition">
+      <i class="fas fa-arrow-right"></i>
+    </a>
+    <h1 class="text-lg font-bold truncate max-w-[200px]">مسح رمز QR</h1>
+    <div class="flex items-center gap-3">
+      <button id="toggleManual" class="text-xl hover:text-blue-200 transition-colors" title="الإدخال اليدوي">
+        <i class="fas fa-keyboard"></i>
+      </button>
+      <button id="toggleCamera" class="text-xl hover:text-blue-200 transition-colors hidden" title="الكاميرا">
+        <i class="fas fa-camera"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Status Message Toast -->
+  <div id="statusMessage"
+    class="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 hidden px-6 py-3 rounded-xl font-bold shadow-lg text-center">
+  </div>
+
+  <div class="max-w-md mx-auto p-6 space-y-8">
+
+    <!-- Location Status -->
+    <div id="locationStatus">
+      <div class="bg-[#e8f5f1] rounded-2xl p-4 mb-10 flex items-center justify-between border border-[#d1e9e2]">
+        <div class="flex items-center gap-4">
+          <div class="w-10 h-10 bg-[#d1e9e2] rounded-xl flex items-center justify-center text-[#2d9d78]">
+            <i class="fas fa-map-marker-alt"></i>
+          </div>
+          <div class="text-right">
+            <h3 class="text-[#2d9d78] font-bold text-sm">جاري التحقق من الموقع...</h3>
+            <p class="text-[#2d9d78] text-xs opacity-80">يرجى الانتظار</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- زر تشغيل الكاميرا (يظهر افتراضياً) -->
+    <div class="flex justify-center mb-4">
+      <button id="startCameraBtn"
+        class="bg-[#1a3a8a] text-white font-bold py-3 px-6 rounded-2xl shadow-lg hover:bg-[#142d6b] transition-all">
+        <i class="fas fa-camera ml-2"></i>
+        تشغيل الكاميرا
+      </button>
+    </div>
+
+    <!-- Camera View Section -->
+    <div id="cameraSection" class="space-y-8 relative hidden">
+      <div class="relative">
+        <div id="reader"></div>
+        <div class="camera-overlay"></div>
+      </div>
+      <p class="text-xs text-gray-400 text-center">وجه الكاميرا نحو رمز QR الخاص بالمحاضرة</p>
+    </div>
+
+    <!-- Manual Entry Section (Hidden by default) -->
+    <div id="manualSection" class="hidden space-y-6">
+      <div class="space-y-2">
+        <label class="block text-right text-sm font-bold text-[#1a3a8a]">رمز QR</label>
+        <textarea id="manualQrInput" placeholder="أدخل رمز QR يدوياً (مثل: QR20250310CS301)"
+          class="w-full h-32 p-4 bg-white border border-gray-200 rounded-2xl text-right outline-none focus:border-[#1a3a8a] transition-colors resize-none"></textarea>
+        <span id="manualQrError" class="error-text">يرجى إدخال رمز QR صالح</span>
+      </div>
+      <button id="manualSubmitBtn"
+        class="w-full bg-[#1a3a8a] text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-[#142d6b] transition-all duration-300">
+        تسجيل الحضور يدوياً
+      </button>
+    </div>
+
+    <!-- Result Message -->
+    <div id="resultMessage" class="hidden p-4 rounded-2xl font-bold text-center"></div>
+
+    <!-- Action Buttons -->
+    <div id="actionButtons" class="space-y-4 hidden">
+      <button id="scanAgainBtn"
+        class="w-full bg-[#1a3a8a] text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-[#142d6b] transition-all duration-300">
+        مسح رمز آخر
+      </button>
+    </div>
+  </div>
+
+  <script src="../src/config.js"></script>
+  <script src="../src/auth.js"></script>
+  <script src="../src/functions.js"></script>
+  <script>
+    const { createClient } = supabase;
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let currentStudent = null;
+    let html5QrCode = null;
+    let isScanning = false;
+
+    // التحقق من الجلسة
+    const auth = checkAuth('student');
+    if (!auth) {
+      throw new Error('Redirecting...');
+    }
+    currentStudent = auth.user;
+
+    // عناصر DOM
+    const cameraSection = document.getElementById('cameraSection');
+    const manualSection = document.getElementById('manualSection');
+    const toggleManual = document.getElementById('toggleManual');
+    const toggleCamera = document.getElementById('toggleCamera');
+    const resultMessage = document.getElementById('resultMessage');
+    const actionButtons = document.getElementById('actionButtons');
+    const scanAgainBtn = document.getElementById('scanAgainBtn');
+    const manualQrInput = document.getElementById('manualQrInput');
+    const manualQrError = document.getElementById('manualQrError');
+    const manualSubmitBtn = document.getElementById('manualSubmitBtn');
+    const statusMessage = document.getElementById('statusMessage');
+    const startCameraBtn = document.getElementById('startCameraBtn');
+
+    // بدء تشغيل الكاميرا والمسح (يتم استدعاؤها عند النقر على زر التشغيل)
+    async function startScanner() {
+      if (!html5QrCode) {
+        html5QrCode = new Html5Qrcode("reader");
+      }
+
+      try {
+        // التحقق من الموقع أولاً (اختياري)
+        const locationValid = await checkLocation('locationStatus');
+        if (!locationValid) {
+          showStatus('يجب أن تكون داخل الحرم الجامعي لتسجيل الحضور', 'error');
+          // نستمر ولكن نحذر المستخدم
+        }
+
+        // طلب قائمة الكاميرات (سيؤدي إلى طلب الإذن)
+        const cameras = await Html5Qrcode.getCameras();
+        if (!cameras || cameras.length === 0) {
+          throw new Error('لا توجد كاميرات متاحة أو تم رفض الإذن');
+        }
+
+        // استخدام الكاميرا الخلفية إن وجدت
+        const backCamera = cameras.find(cam => cam.label.toLowerCase().includes('back') || cam.label.toLowerCase().includes('environment'));
+        const cameraId = backCamera ? backCamera.id : cameras[0].id;
+
+        await html5QrCode.start(
+          cameraId,
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0
+          },
+          onScanSuccess,
+          onScanError
+        );
+        isScanning = true;
+
+        // إخفاء زر التشغيل وإظهار قسم الكاميرا
+        startCameraBtn.classList.add('hidden');
+        cameraSection.classList.remove('hidden');
+      } catch (error) {
+        console.error('Error starting camera:', error);
+        if (error.message.includes('permission') || error.name === 'NotAllowedError' || error.message.includes('رفض')) {
+          showStatus('تم رفض الإذن بالوصول إلى الكاميرا. يرجى السماح يدوياً من إعدادات المتصفح.', 'error');
+        } else {
+          showStatus('خطأ في تشغيل الكاميرا: ' + error.message, 'error');
+        }
+        // إظهار خيار الإدخال اليدوي
+        manualSection.classList.remove('hidden');
+        cameraSection.classList.add('hidden');
+        toggleCamera.classList.remove('hidden');
+        toggleManual.classList.add('hidden');
+        startCameraBtn.disabled = false;
+        startCameraBtn.innerHTML = '<i class="fas fa-camera ml-2"></i>تشغيل الكاميرا';
+      }
+    }
+
+    // دالة نجاح المسح
+    async function onScanSuccess(decodedText) {
+      if (!isScanning) return; // لمنع التكرار
+
+      // إيقاف المسح مؤقتاً
+      if (html5QrCode) {
+        await html5QrCode.stop();
+        isScanning = false;
+      }
+
+      resultMessage.classList.remove('hidden');
+      resultMessage.className = 'p-4 rounded-2xl font-bold text-center bg-blue-50 text-blue-600';
+      resultMessage.textContent = 'جاري التحقق من رمز QR...';
+
+      try {
+        // التحقق من الموقع مرة أخرى قبل التسجيل
+        // const locationValid = await checkLocation('locationStatus');
+        // if (!locationValid) {
+        //   throw new Error('يجب أن تكون داخل الحرم الجامعي لتسجيل الحضور');
+        // }
+
+        // البحث عن الجلسة باستخدام qr_token
+        const { data: session, error: sessionError } = await supabaseClient
+          .from('sessions')
+          .select('id, course_id, start_time, end_time')
+          .eq('qr_token', decodedText)
+          .maybeSingle();
+
+        if (sessionError) throw sessionError;
+        if (!session) throw new Error('رمز QR غير صالح أو غير معروف');
+
+        // التحقق من أن الوقت الحالي ضمن وقت الجلسة
+        const now = new Date();
+        const start = new Date(session.start_time);
+        const end = new Date(session.end_time);
+        if (now < start || now > end) {
+          throw new Error('الجلسة غير نشطة حالياً (خارج الوقت المحدد)');
+        }
+
+        // الحصول على إحداثيات الطالب الحالية
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject);
+        });
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+
+        // تسجيل الحضور
+        const { error: attendanceError } = await supabaseClient
+          .from('attendance')
+          .insert({
+            session_id: session.id,
+            student_id: currentStudent.id,
+            lat: lat,
+            lng: lng
+          });
+
+        if (attendanceError) {
+          if (attendanceError.code === '23505') { // unique violation
+            throw new Error('لقد سجلت حضورك مسبقاً في هذه الجلسة');
+          }
+          throw attendanceError;
+        }
+
+        // نجاح
+        resultMessage.className = 'p-4 rounded-2xl font-bold text-center bg-green-100 text-green-700';
+        resultMessage.textContent = 'تم تسجيل حضورك بنجاح!';
+        showStatus('تم تسجيل الحضور', 'success');
+
+        // إظهار زر مسح رمز آخر
+        actionButtons.classList.remove('hidden');
+
+      } catch (error) {
+        console.error('Scan error:', error);
+        resultMessage.className = 'p-4 rounded-2xl font-bold text-center bg-red-100 text-red-700';
+        resultMessage.textContent = `${error.message}`;
+        actionButtons.classList.remove('hidden');
+      }
+    }
+
+    function onScanError(error) {
+      console.warn('Scan error:', error);
+      // تجاهل أخطاء المسح المؤقتة
+    }
+
+    // إعادة تشغيل المسح
+    scanAgainBtn.addEventListener('click', async () => {
+      resultMessage.classList.add('hidden');
+      actionButtons.classList.add('hidden');
+      await startScanner();
+    });
+
+    // التبديل إلى الإدخال اليدوي
+    toggleManual.addEventListener('click', async () => {
+      if (html5QrCode && isScanning) {
+        await html5QrCode.stop();
+        isScanning = false;
+      }
+      cameraSection.classList.add('hidden');
+      manualSection.classList.remove('hidden');
+      toggleManual.classList.add('hidden');
+      toggleCamera.classList.remove('hidden');
+      startCameraBtn.classList.remove('hidden'); // إعادة ظهور زر التشغيل
+    });
+
+    // التبديل إلى الكاميرا
+    toggleCamera.addEventListener('click', () => {
+      manualSection.classList.add('hidden');
+      cameraSection.classList.remove('hidden');
+      toggleCamera.classList.add('hidden');
+      toggleManual.classList.remove('hidden');
+      startScanner(); // إعادة تشغيل المسح
+    });
+
+    // معالجة الإدخال اليدوي
+    manualSubmitBtn.addEventListener('click', async () => {
+      const qrText = manualQrInput.value.trim();
+      if (!qrText) {
+        manualQrError.style.display = 'block';
+        manualQrInput.classList.add('error-border');
+        return;
+      }
+      manualQrError.style.display = 'none';
+      manualQrInput.classList.remove('error-border');
+
+      resultMessage.classList.remove('hidden');
+      resultMessage.className = 'p-4 rounded-2xl font-bold text-center bg-blue-50 text-blue-600';
+      resultMessage.textContent = 'جاري التحقق من رمز QR...';
+
+      try {
+        // const locationValid = await checkLocation('locationStatus');
+        // if (!locationValid) {
+        //   throw new Error('يجب أن تكون داخل الحرم الجامعي لتسجيل الحضور');
+        // }
+
+        const { data: session, error: sessionError } = await supabaseClient
+          .from('sessions')
+          .select('id, start_time, end_time')
+          .eq('qr_token', qrText)
+          .maybeSingle();
+
+        if (sessionError) throw sessionError;
+        if (!session) throw new Error('رمز QR غير صالح أو غير معروف');
+
+        const now = new Date();
+        const start = new Date(session.start_time);
+        const end = new Date(session.end_time);
+        if (now < start || now > end) {
+          throw new Error('الجلسة غير نشطة حالياً');
+        }
+
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject);
+        });
+
+        const { error: attendanceError } = await supabaseClient
+          .from('attendance')
+          .insert({
+            session_id: session.id,
+            student_id: currentStudent.id,
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+
+        if (attendanceError) {
+          if (attendanceError.code === '23505') {
+            throw new Error('لقد سجلت حضورك مسبقاً في هذه الجلسة');
+          }
+          throw attendanceError;
+        }
+
+        resultMessage.className = 'p-4 rounded-2xl font-bold text-center bg-green-100 text-green-700';
+        resultMessage.textContent = 'تم تسجيل حضورك بنجاح!';
+        showStatus('تم تسجيل الحضور', 'success');
+        actionButtons.classList.remove('hidden');
+        manualQrInput.value = '';
+
+      } catch (error) {
+        console.error('Manual entry error:', error);
+        resultMessage.className = 'p-4 rounded-2xl font-bold text-center bg-red-100 text-red-700';
+        resultMessage.textContent = `${error.message}`;
+        actionButtons.classList.remove('hidden');
+      }
+    });
+
+    // إزالة الخطأ عند الكتابة
+    manualQrInput.addEventListener('input', () => {
+      manualQrError.style.display = 'none';
+      manualQrInput.classList.remove('error-border');
+    });
+
+    // تشغيل الكاميرا عند النقر على زر البدء
+    startCameraBtn.addEventListener('click', () => {
+      startCameraBtn.disabled = true;
+      startCameraBtn.innerHTML = 'جاري التشغيل...';
+      startScanner();
+    });
+
+    // تنظيف عند مغادرة الصفحة
+    window.addEventListener('beforeunload', async () => {
+      if (html5QrCode && isScanning) {
+        await html5QrCode.stop();
+      }
+    });
+  </script>
+</body>
+
+</html>

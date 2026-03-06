@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>تقرير الحضور - المحاضر</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Cairo', sans-serif; }
+        .card-shadow { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); }
+        .tab-active { border-bottom: 4px solid #1a3a8a; color: #1a3a8a; font-weight: bold; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- Navbar -->
+    <div class="bg-[#1a3a8a] text-white p-4 flex items-center justify-between sticky top-0 z-10">
+        <a href="home.html" class="text-xl">
+            <i class="fas fa-arrow-right"></i>
+        </a>
+        <h1 class="text-lg font-bold">تقرير الحضور</h1>
+        <div class="w-6"></div>
+    </div>
+
+    <!-- Status Message Toast -->
+    <div id="statusMessage" class="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 hidden px-6 py-3 rounded-xl font-bold shadow-lg text-center"></div>
+
+    <div class="max-w-md mx-auto p-6 space-y-6">
+
+        <!-- Course Selection -->
+        <div class="space-y-2">
+            <label class="block text-right text-sm font-bold text-gray-400">اختر المقرر لعرض التقرير</label>
+            <div class="relative flex items-center border border-gray-200 bg-white rounded-2xl overflow-hidden transition-all focus-within:border-[#1a3a8a]">
+                <select id="courseSelect" class="w-full px-4 py-4 text-right bg-transparent outline-none appearance-none font-bold text-[#1a3a8a] text-sm">
+                    <option value="" disabled selected>جاري تحميل المقررات...</option>
+                </select>
+                <div class="px-4 text-gray-400 pointer-events-none">
+                    <i class="fas fa-chevron-down text-xs"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div id="statsGrid" class="grid grid-cols-2 gap-4">
+            <div class="bg-[#eff6ff] p-4 rounded-2xl border border-blue-100 flex flex-col items-center text-center">
+                <i class="fas fa-users text-[#1a3a8a] text-xl mb-2"></i>
+                <span id="totalStudents" class="text-2xl font-bold text-[#1a3a8a]">0</span>
+                <span class="text-xs text-[#1a3a8a]">إجمالي الطلاب</span>
+            </div>
+            <div class="bg-[#e8f5f1] p-4 rounded-2xl border border-green-100 flex flex-col items-center text-center">
+                <i class="far fa-check-circle text-[#2d9d78] text-xl mb-2"></i>
+                <span id="presentCount" class="text-2xl font-bold text-[#2d9d78]">0</span>
+                <span class="text-xs text-[#2d9d78]">الحاضرين</span>
+            </div>
+            <div class="bg-[#fef2f2] p-4 rounded-2xl border border-red-100 flex flex-col items-center text-center">
+                <i class="far fa-times-circle text-[#ef4444] text-xl mb-2"></i>
+                <span id="absentCount" class="text-2xl font-bold text-[#ef4444]">0</span>
+                <span class="text-xs text-[#ef4444]">الغائبين</span>
+            </div>
+            <div class="bg-[#eff6ff] p-4 rounded-2xl border border-blue-100 flex flex-col items-center text-center">
+                <i class="fas fa-percent text-[#3b82f6] text-xl mb-2"></i>
+                <span id="attendancePercent" class="text-2xl font-bold text-[#3b82f6]">0.0%</span>
+                <span class="text-xs text-[#3b82f6]">نسبة الحضور</span>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex border-b">
+            <button id="tabAttendance" class="flex-1 py-4 font-bold text-sm tab-active">سجل الحضور</button>
+            <button id="tabStats" class="flex-1 py-4 font-bold text-sm text-gray-400">إحصائيات</button>
+        </div>
+
+        <!-- Content Area -->
+        <div id="attendanceContent" class="block">
+            <!-- سيتم ملؤها بجدول الحضور -->
+            <div id="attendanceList" class="space-y-3"></div>
+            <div id="emptyAttendance" class="flex flex-col items-center justify-center py-12 text-center space-y-6 hidden">
+                <div class="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-400">
+                    <i class="far fa-clipboard text-4xl"></i>
+                </div>
+                <h3 class="text-xl font-bold text-gray-400">لا يوجد سجل حضور لهذا المقرر</h3>
+            </div>
+        </div>
+
+        <div id="statsContent" class="hidden">
+            <!-- سيتم عرض إحصائيات إضافية هنا إن أردت -->
+            <div class="bg-white rounded-3xl p-6 card-shadow text-center text-gray-500">
+                <i class="fas fa-chart-pie text-4xl mb-4 text-gray-300"></i>
+                <p>إحصائيات تفصيلية قريباً</p>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="../src/config.js"></script>
+    <script src="../src/auth.js"></script>
+    <script src="../src/functions.js"></script>
+    <script>
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const auth = checkAuth('instructor');
+        if (!auth) throw new Error('Redirecting...');
+        const currentInstructor = auth.user;
+
+        const statusMessage = document.getElementById('statusMessage');
+        const courseSelect = document.getElementById('courseSelect');
+        const totalStudentsSpan = document.getElementById('totalStudents');
+        const presentCountSpan = document.getElementById('presentCount');
+        const absentCountSpan = document.getElementById('absentCount');
+        const attendancePercentSpan = document.getElementById('attendancePercent');
+        const attendanceListDiv = document.getElementById('attendanceList');
+        const emptyAttendanceDiv = document.getElementById('emptyAttendance');
+        const tabAttendance = document.getElementById('tabAttendance');
+        const tabStats = document.getElementById('tabStats');
+        const attendanceContent = document.getElementById('attendanceContent');
+        const statsContent = document.getElementById('statsContent');
+
+        let currentCourseId = null;
+
+        // تحميل المقررات التي يدرسها المحاضر
+        async function loadCourses() {
+            try {
+                const { data: courses, error } = await supabaseClient
+                    .from('courses')
+                    .select('id, code, name')
+                    .eq('instructor_id', currentInstructor.id);
+
+                if (error) throw error;
+
+                if (!courses || courses.length === 0) {
+                    courseSelect.innerHTML = '<option value="" disabled>لا توجد مقررات</option>';
+                    return;
+                }
+
+                let options = '<option value="" disabled selected>اختر المقرر...</option>';
+                courses.forEach(course => {
+                    options += `<option value="${course.id}">${course.name} (${course.code})</option>`;
+                });
+                courseSelect.innerHTML = options;
+            } catch (error) {
+                console.error('Error loading courses:', error);
+                showStatus('فشل تحميل المقررات', 'error');
+            }
+        }
+
+        // تحميل إحصائيات وسجل الحضور لمقرر معين
+        async function loadReport(courseId) {
+            try {
+                // جلب جميع الطلاب المسجلين في هذا المقرر (من جدول enrollments)
+                const { data: enrollments, error: enrollError } = await supabaseClient
+                    .from('enrollments')
+                    .select('student_id, students(id, name, university_id)')
+                    .eq('course_id', courseId);
+
+                if (enrollError) throw enrollError;
+
+                const total = enrollments?.length || 0;
+                totalStudentsSpan.textContent = total;
+
+                if (total === 0) {
+                    presentCountSpan.textContent = '0';
+                    absentCountSpan.textContent = '0';
+                    attendancePercentSpan.textContent = '0.0%';
+                    attendanceListDiv.innerHTML = '';
+                    emptyAttendanceDiv.classList.remove('hidden');
+                    return;
+                }
+
+                // جلب جميع جلسات هذا المقرر
+                const { data: sessions, error: sessionsError } = await supabaseClient
+                    .from('sessions')
+                    .select('id, start_time')
+                    .eq('course_id', courseId);
+
+                if (sessionsError) throw sessionsError;
+
+                const sessionIds = sessions.map(s => s.id);
+
+                // إذا لم توجد جلسات بعد
+                if (sessionIds.length === 0) {
+                    presentCountSpan.textContent = '0';
+                    absentCountSpan.textContent = total;
+                    attendancePercentSpan.textContent = '0.0%';
+                    attendanceListDiv.innerHTML = '';
+                    emptyAttendanceDiv.classList.remove('hidden');
+                    return;
+                }
+
+                // جلب سجلات الحضور لكل طالب في هذه الجلسات
+                const { data: attendanceRecords, error: attendanceError } = await supabaseClient
+                    .from('attendance')
+                    .select('student_id, session_id, created_at, sessions(start_time)')
+                    .in('session_id', sessionIds);
+
+                if (attendanceError) throw attendanceError;
+
+                // تجميع الحضور حسب الطالب
+                const attendanceMap = new Map();
+                attendanceRecords.forEach(rec => {
+                    if (!attendanceMap.has(rec.student_id)) {
+                        attendanceMap.set(rec.student_id, 0);
+                    }
+                    attendanceMap.set(rec.student_id, attendanceMap.get(rec.student_id) + 1);
+                });
+
+                // عدد الطلاب الذين حضروا مرة واحدة على الأقل
+                const present = attendanceMap.size;
+                const absent = total - present;
+                const percent = total > 0 ? ((present / total) * 100).toFixed(1) : 0;
+
+                presentCountSpan.textContent = present;
+                absentCountSpan.textContent = absent;
+                attendancePercentSpan.textContent = `${percent}%`;
+
+                // عرض سجل الحضور (آخر 10 جلسات)
+                const lastSessions = sessions.sort((a, b) => new Date(b.start_time) - new Date(a.start_time)).slice(0, 10);
+                let attendanceHtml = '';
+
+                for (const session of lastSessions) {
+                    const sessionAttendance = attendanceRecords.filter(r => r.session_id === session.id);
+                    const presentCount = sessionAttendance.length;
+                    const date = new Date(session.start_time).toLocaleDateString('ar-SA');
+                    const time = new Date(session.start_time).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+
+                    attendanceHtml += `
+                        <div class="bg-white rounded-2xl p-4 card-shadow border-r-4 border-[#1a3a8a]">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-bold text-[#1a3a8a]">${date} - ${time}</span>
+                                <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">${presentCount} حاضر</span>
+                            </div>
+                            <div class="mt-2 text-xs text-gray-500">
+                                إجمالي الحضور: ${presentCount} من ${total}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (attendanceHtml) {
+                    attendanceListDiv.innerHTML = attendanceHtml;
+                    emptyAttendanceDiv.classList.add('hidden');
+                } else {
+                    attendanceListDiv.innerHTML = '';
+                    emptyAttendanceDiv.classList.remove('hidden');
+                }
+
+            } catch (error) {
+                console.error('Error loading report:', error);
+                showStatus('فشل تحميل التقرير', 'error');
+            }
+        }
+
+        // عند تغيير المقرر
+        courseSelect.addEventListener('change', (e) => {
+            currentCourseId = e.target.value;
+            if (currentCourseId) {
+                loadReport(currentCourseId);
+            }
+        });
+
+        // تبديل التبويبات
+        tabAttendance.addEventListener('click', () => {
+            tabAttendance.classList.add('tab-active');
+            tabStats.classList.remove('tab-active');
+            tabStats.classList.add('text-gray-400');
+            attendanceContent.classList.remove('hidden');
+            statsContent.classList.add('hidden');
+        });
+
+        tabStats.addEventListener('click', () => {
+            tabStats.classList.add('tab-active');
+            tabAttendance.classList.remove('tab-active');
+            tabAttendance.classList.add('text-gray-400');
+            statsContent.classList.remove('hidden');
+            attendanceContent.classList.add('hidden');
+        });
+
+        loadCourses();
+    </script>
+</body>
+</html>
