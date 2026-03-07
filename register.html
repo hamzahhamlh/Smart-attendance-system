@@ -1,273 +1,305 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>نظام الحضور الذكي - إنشاء حساب جديد</title>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>نظام الحضور الذكي - إنشاء حساب جديد</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  
+  <!-- Google Fonts: Cairo -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Supabase JS Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <style>
+    body {
+      font-family: 'Cairo', sans-serif;
+    }
+    .input-focus:focus-within {
+      border-color: #1a3a8a;
+      box-shadow: 0 0 0 4px rgba(26, 58, 138, 0.1);
+    }
+    .error-border {
+      border-color: #ef4444 !important;
+    }
+    .error-text {
+      color: #ef4444;
+      font-size: 0.75rem;
+      margin-top: 0.25rem;
+      margin-right: 0.25rem;
+      display: none;
+    }
+    .role-tab.active {
+      background-color: #1a3a8a;
+      color: white;
+    }
     
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    #statusMessage {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-weight: 600;
+      display: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center py-12 px-4">
+  
+  <!-- Status Message Toast -->
+  <div id="statusMessage"></div>
+  
+  <div class="w-full max-w-lg bg-white rounded-3xl p-8 shadow-sm">
     
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-    
-    <!-- Google Fonts: Cairo -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Supabase JS Library -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
-    <style>
-      body {
-        font-family: 'Cairo', sans-serif;
-      }
-      .input-focus:focus-within {
-        border-color: #1a3a8a;
-        box-shadow: 0 0 0 4px rgba(26, 58, 138, 0.1);
-      }
-      .error-border {
-        border-color: #ef4444 !important;
-      }
-      .error-text {
-        color: #ef4444;
-        font-size: 0.75rem;
-        margin-top: 0.25rem;
-        margin-right: 0.25rem;
-        display: none;
-      }
-      .role-tab.active {
-        background-color: #1a3a8a;
-        color: white;
-      }
-      
-      #statusMessage {
-        position: fixed;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 100;
-        padding: 12px 24px;
-        border-radius: 12px;
-        font-weight: 600;
-        display: none;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      }
-    </style>
-  </head>
-  <body class="bg-gray-50 min-h-screen flex items-center justify-center py-12 px-4">
-    
-    <!-- Status Message Toast -->
-    <div id="statusMessage"></div>
-    
-    <div class="w-full max-w-lg bg-white rounded-3xl p-8 shadow-sm">
-      
-      <!-- Header Section -->
-      <div class="flex flex-col items-center mb-8 text-center">
-        <div class="w-20 h-20 bg-[#1a3a8a] rounded-full flex items-center justify-center shadow-lg mb-4">
-          <i class="fas fa-user-plus text-white text-3xl"></i>
-        </div>
-        <h1 class="text-2xl font-bold text-[#1a3a8a]">إنشاء حساب جديد</h1>
-        <p class="text-gray-500 text-sm mt-1">انضم إلى نظام الحضور الذكي</p>
+    <!-- Header Section -->
+    <div class="flex flex-col items-center mb-8 text-center">
+      <div class="w-20 h-20 bg-[#1a3a8a] rounded-full flex items-center justify-center shadow-lg mb-4">
+        <i class="fas fa-user-plus text-white text-3xl"></i>
       </div>
-
-      <!-- Role Selection Tabs -->
-      <div class="flex bg-gray-100 p-1 rounded-2xl mb-8">
-        <button id="studentTab" class="role-tab active flex-1 py-3 rounded-xl font-bold transition-all">طالب</button>
-        <button id="instructorTab" class="role-tab flex-1 py-3 rounded-xl font-bold transition-all">محاضر</button>
-      </div>
-
-      <!-- Registration Form -->
-      <form id="registerForm" class="space-y-5" novalidate>
-        
-        <!-- Full Name -->
-        <div>
-          <label class="block text-sm font-semibold text-[#1a3a8a] mb-2 mr-1">الاسم الكامل</label>
-          <div class="relative flex items-center border border-gray-200 bg-gray-50 rounded-2xl overflow-hidden transition-all focus-within:border-[#1a3a8a] focus-within:ring-4 focus-within:ring-blue-100">
-            <input id="fullName" type="text" placeholder="أدخل اسمك الكامل" class="w-full px-4 py-3 text-right bg-transparent outline-none">
-            <div class="px-4 text-gray-400"><i class="fas fa-id-card"></i></div>
-          </div>
-          <span id="nameError" class="error-text">يرجى إدخال الاسم الكامل</span>
-        </div>
-
-        <!-- Email -->
-        <div>
-          <label class="block text-sm font-semibold text-[#1a3a8a] mb-2 mr-1">البريد الإلكتروني</label>
-          <div class="relative flex items-center border border-gray-200 bg-gray-50 rounded-2xl overflow-hidden transition-all focus-within:border-[#1a3a8a] focus-within:ring-4 focus-within:ring-blue-100">
-            <input id="email" type="email" placeholder="example@psau.edu.sa" class="w-full px-4 py-3 text-right bg-transparent outline-none">
-            <div class="px-4 text-gray-400"><i class="fas fa-envelope"></i></div>
-          </div>
-          <span id="emailError" class="error-text">يرجى إدخال بريد إلكتروني صحيح</span>
-        </div>
-
-        <!-- ID Field (Student ID or Employee ID) -->
-        <div>
-          <label id="idLabel" class="block text-sm font-semibold text-[#1a3a8a] mb-2 mr-1">الرقم الجامعي</label>
-          <div class="relative flex items-center border border-gray-200 bg-gray-50 rounded-2xl overflow-hidden transition-all focus-within:border-[#1a3a8a] focus-within:ring-4 focus-within:ring-blue-100">
-            <input id="idInput" type="text" placeholder="أدخل الرقم الجامعي" class="w-full px-4 py-3 text-right bg-transparent outline-none">
-            <div class="px-4 text-gray-400"><i class="fas fa-hashtag"></i></div>
-          </div>
-          <span id="idError" class="error-text">يرجى إدخال الرقم المطلوب</span>
-        </div>
-
-        <!-- Special Field (Major for Student, Department for Instructor) -->
-        <div>
-          <label id="specialLabel" class="block text-sm font-semibold text-[#1a3a8a] mb-2 mr-1">التخصص</label>
-          <div class="relative flex items-center border border-gray-200 bg-gray-50 rounded-2xl overflow-hidden transition-all focus-within:border-[#1a3a8a] focus-within:ring-4 focus-within:ring-blue-100">
-            <input id="specialInput" type="text" placeholder="أدخل التخصص" class="w-full px-4 py-3 text-right bg-transparent outline-none">
-            <div class="px-4 text-gray-400"><i class="fas fa-briefcase"></i></div>
-          </div>
-          <span id="specialError" class="error-text">يرجى إدخال القيمة المطلوبة</span>
-        </div>
-
-        <!-- Password -->
-        <div>
-          <label class="block text-sm font-semibold text-[#1a3a8a] mb-2 mr-1">كلمة المرور</label>
-          <div class="relative flex items-center border border-gray-200 bg-gray-50 rounded-2xl overflow-hidden transition-all focus-within:border-[#1a3a8a] focus-within:ring-4 focus-within:ring-blue-100">
-            <input id="password" type="password" placeholder="أدخل كلمة المرور" class="w-full px-4 py-3 text-right bg-transparent outline-none">
-            <div class="px-4 text-gray-400"><i class="fas fa-lock"></i></div>
-          </div>
-          <span id="passwordError" class="error-text">كلمة المرور يجب أن تكون 6 أحرف على الأقل</span>
-        </div>
-
-        <!-- Submit Button -->
-        <button id="submitBtn" type="submit" class="w-full bg-[#1a3a8a] text-white font-bold py-4 rounded-2xl shadow-md hover:bg-[#142d6b] transition-all transform active:scale-[0.98] mt-4 flex items-center justify-center">
-          <span id="btnText">إنشاء الحساب</span>
-          <div id="btnLoader" class="hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-        </button>
-
-        <div class="text-center mt-4">
-          <p class="text-sm text-gray-600">لديك حساب بالفعل؟ <a href="index.html" class="text-[#1a3a8a] font-bold hover:underline">تسجيل الدخول</a></p>
-        </div>
-      </form>
+      <h1 class="text-2xl font-bold text-[#1a3a8a]">إنشاء حساب جديد</h1>
+      <p class="text-gray-500 text-sm mt-1">انضم إلى نظام الحضور الذكي</p>
     </div>
 
-    <script src="src/config.js"></script>
-    <script>
-      const { createClient } = supabase;
-      const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    <!-- Role Selection Tabs -->
+    <div class="flex bg-gray-100 p-1 rounded-2xl mb-8">
+      <button id="studentTab" class="role-tab active flex-1 py-3 rounded-xl font-bold transition-all">طالب</button>
+      <button id="instructorTab" class="role-tab flex-1 py-3 rounded-xl font-bold transition-all">محاضر</button>
+    </div>
 
-      let currentRole = 'student'; // 'student' or 'instructor'
+    <!-- Registration Form -->
+    <form id="registerForm" class="space-y-5" novalidate>
+      
+      <!-- Full Name -->
+      <div>
+        <label class="block text-sm font-semibold text-[#1a3a8a] mb-2 mr-1">الاسم الكامل</label>
+        <div class="relative flex items-center border border-gray-200 bg-gray-50 rounded-2xl overflow-hidden transition-all focus-within:border-[#1a3a8a] focus-within:ring-4 focus-within:ring-blue-100">
+          <input id="fullName" type="text" placeholder="أدخل اسمك الكامل" class="w-full px-4 py-3 text-right bg-transparent outline-none">
+          <div class="px-4 text-gray-400"><i class="fas fa-id-card"></i></div>
+        </div>
+        <span id="nameError" class="error-text">يرجى إدخال الاسم الكامل</span>
+      </div>
 
-      const studentTab = document.getElementById('studentTab');
-      const instructorTab = document.getElementById('instructorTab');
-      const idLabel = document.getElementById('idLabel');
-      const idInput = document.getElementById('idInput');
-      const specialLabel = document.getElementById('specialLabel');
-      const specialInput = document.getElementById('specialInput');
-      const registerForm = document.getElementById('registerForm');
-      const statusMessage = document.getElementById('statusMessage');
-      const submitBtn = document.getElementById('submitBtn');
-      const btnText = document.getElementById('btnText');
-      const btnLoader = document.getElementById('btnLoader');
+      <!-- Email -->
+      <div>
+        <label class="block text-sm font-semibold text-[#1a3a8a] mb-2 mr-1">البريد الإلكتروني</label>
+        <div class="relative flex items-center border border-gray-200 bg-gray-50 rounded-2xl overflow-hidden transition-all focus-within:border-[#1a3a8a] focus-within:ring-4 focus-within:ring-blue-100">
+          <input id="email" type="email" placeholder="example@psau.edu.sa" class="w-full px-4 py-3 text-right bg-transparent outline-none">
+          <div class="px-4 text-gray-400"><i class="fas fa-envelope"></i></div>
+        </div>
+        <span id="emailError" class="error-text">يرجى إدخال بريد إلكتروني صحيح</span>
+      </div>
 
-      // Tab Switching Logic
-      studentTab.addEventListener('click', () => {
+      <!-- ID Field (Student ID or Employee ID) -->
+      <div>
+        <label id="idLabel" class="block text-sm font-semibold text-[#1a3a8a] mb-2 mr-1">الرقم الجامعي</label>
+        <div class="relative flex items-center border border-gray-200 bg-gray-50 rounded-2xl overflow-hidden transition-all focus-within:border-[#1a3a8a] focus-within:ring-4 focus-within:ring-blue-100">
+          <input id="idInput" type="text" placeholder="أدخل الرقم الجامعي" class="w-full px-4 py-3 text-right bg-transparent outline-none">
+          <div class="px-4 text-gray-400"><i class="fas fa-hashtag"></i></div>
+        </div>
+        <span id="idError" class="error-text">يرجى إدخال الرقم المطلوب</span>
+      </div>
+
+      <!-- Special Field (Major for Student, Department for Instructor) -->
+      <div>
+        <label id="specialLabel" class="block text-sm font-semibold text-[#1a3a8a] mb-2 mr-1">التخصص</label>
+        <div class="relative flex items-center border border-gray-200 bg-gray-50 rounded-2xl overflow-hidden transition-all focus-within:border-[#1a3a8a] focus-within:ring-4 focus-within:ring-blue-100">
+          <input id="specialInput" type="text" placeholder="أدخل التخصص" class="w-full px-4 py-3 text-right bg-transparent outline-none">
+          <div class="px-4 text-gray-400"><i class="fas fa-briefcase"></i></div>
+        </div>
+        <span id="specialError" class="error-text">يرجى إدخال القيمة المطلوبة</span>
+      </div>
+
+      <!-- Password -->
+      <div>
+        <label class="block text-sm font-semibold text-[#1a3a8a] mb-2 mr-1">كلمة المرور</label>
+        <div class="relative flex items-center border border-gray-200 bg-gray-50 rounded-2xl overflow-hidden transition-all focus-within:border-[#1a3a8a] focus-within:ring-4 focus-within:ring-blue-100">
+          <input id="password" type="password" placeholder="أدخل كلمة المرور" class="w-full px-4 py-3 text-right bg-transparent outline-none">
+          <div class="px-4 text-gray-400"><i class="fas fa-lock"></i></div>
+        </div>
+        <span id="passwordError" class="error-text">كلمة المرور يجب أن تكون 6 أحرف على الأقل</span>
+      </div>
+
+      <!-- Submit Button -->
+      <button id="submitBtn" type="submit" class="w-full bg-[#1a3a8a] text-white font-bold py-4 rounded-2xl shadow-md hover:bg-[#142d6b] transition-all transform active:scale-[0.98] mt-4 flex items-center justify-center">
+        <span id="btnText">إنشاء الحساب</span>
+        <div id="btnLoader" class="hidden w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+      </button>
+
+      <div class="text-center mt-4">
+        <p class="text-sm text-gray-600">لديك حساب بالفعل؟ <a href="index.html" class="text-[#1a3a8a] font-bold hover:underline">تسجيل الدخول</a></p>
+      </div>
+    </form>
+  </div>
+
+  <script src="src/config.js"></script>
+  <script src="src/functions.js"></script>
+
+<script>
+    const { createClient } = supabase;
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let currentRole = 'student'; // 'student' or 'instructor'
+
+    // عناصر DOM
+    const studentTab = document.getElementById('studentTab');
+    const instructorTab = document.getElementById('instructorTab');
+    const idLabel = document.getElementById('idLabel');
+    const idInput = document.getElementById('idInput');
+    const idFieldDiv = idInput.closest('div'); // الحاوية الكاملة لحقل ID
+    const specialLabel = document.getElementById('specialLabel');
+    const specialInput = document.getElementById('specialInput');
+    const registerForm = document.getElementById('registerForm');
+    const statusMessage = document.getElementById('statusMessage');
+    const submitBtn = document.getElementById('submitBtn');
+    const btnText = document.getElementById('btnText');
+    const btnLoader = document.getElementById('btnLoader');
+
+    // Tab Switching Logic
+    studentTab.addEventListener('click', () => {
         currentRole = 'student';
         studentTab.classList.add('active');
         instructorTab.classList.remove('active');
+        
+        // إظهار حقل الرقم الجامعي
+        idFieldDiv.classList.remove('hidden');
         idLabel.textContent = 'الرقم الجامعي';
         idInput.placeholder = 'أدخل الرقم الجامعي';
+        
         specialLabel.textContent = 'التخصص';
         specialInput.placeholder = 'أدخل التخصص';
-      });
+    });
 
-      instructorTab.addEventListener('click', () => {
+    instructorTab.addEventListener('click', () => {
         currentRole = 'instructor';
         instructorTab.classList.add('active');
         studentTab.classList.remove('active');
-        idLabel.textContent = 'الرقم الوظيفي';
-        idInput.placeholder = 'أدخل الرقم الوظيفي';
+          idLabel.textContent = "";
+        // إخفاء حقل الرقم الوظيفي بالكامل
+        idFieldDiv.classList.add('hidden');
+        
         specialLabel.textContent = 'القسم';
         specialInput.placeholder = 'أدخل القسم';
-      });
+    });
 
-      function showStatus(text, type) {
-        statusMessage.textContent = text;
-        statusMessage.style.display = 'block';
-        statusMessage.className = type === 'success' 
-          ? 'bg-green-100 text-green-800 border border-green-200' 
-          : 'bg-red-100 text-red-800 border border-red-200';
-        setTimeout(() => statusMessage.style.display = 'none', 4000);
-      }
-
-      registerForm.addEventListener('submit', async (e) => {
+    registerForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
+
+        // الحصول على القيم
         const fullName = document.getElementById('fullName').value.trim();
         const email = document.getElementById('email').value.trim();
         const idVal = idInput.value.trim();
         const specialVal = specialInput.value.trim();
         const password = document.getElementById('password').value.trim();
 
-        // Basic Validation
-        if (!fullName || !email || !idVal || !specialVal || password.length < 6) {
-          showStatus('يرجى إكمال جميع الحقول بشكل صحيح', 'error');
-          return;
+        // إعادة تعيين الأخطاء
+        document.querySelectorAll('.error-text').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.border-gray-200').forEach(el => el.classList.remove('error-border'));
+
+        let isValid = true;
+
+        // التحقق من الاسم
+        if (!fullName) {
+            document.getElementById('nameError').style.display = 'block';
+            document.getElementById('fullName').parentElement.classList.add('error-border');
+            isValid = false;
+        }
+        // التحقق من البريد الإلكتروني
+        if (!email || !email.includes('@')) {
+            document.getElementById('emailError').style.display = 'block';
+            document.getElementById('email').parentElement.classList.add('error-border');
+            isValid = false;
+        }
+        // التحقق من الرقم (فقط إذا كان طالباً)
+        if (currentRole === 'student' && !idVal) {
+            document.getElementById('idError').style.display = 'block';
+            idInput.parentElement.classList.add('error-border');
+            isValid = false;
+        }
+        // التحقق من التخصص/القسم
+        if (!specialVal) {
+            document.getElementById('specialError').style.display = 'block';
+            specialInput.parentElement.classList.add('error-border');
+            isValid = false;
+        }
+        // التحقق من كلمة المرور
+        if (password.length < 6) {
+            document.getElementById('passwordError').style.display = 'block';
+            document.getElementById('password').parentElement.classList.add('error-border');
+            isValid = false;
         }
 
+        if (!isValid) return;
+
+        // بدء حالة التحميل
         submitBtn.disabled = true;
         btnText.textContent = 'جاري إنشاء الحساب...';
         btnLoader.classList.remove('hidden');
 
         try {
-          // 1. Sign Up in Supabase Auth
-          const { data: authData, error: authError } = await supabaseClient.auth.signUp({
-            email: email,
-            password: password,
-            options: {
-              data: {
-                full_name: fullName,
-                role: currentRole
-              }
+            // التحقق من عدم وجود البريد الإلكتروني مسبقاً
+            const { data: existingStudent } = await supabaseClient
+                .from('students')
+                .select('email')
+                .eq('email', email)
+                .maybeSingle();
+
+            const { data: existingInstructor } = await supabaseClient
+                .from('instructors')
+                .select('email')
+                .eq('email', email)
+                .maybeSingle();
+
+            if (existingStudent || existingInstructor) {
+                throw new Error('البريد الإلكتروني مستخدم بالفعل');
             }
-          });
 
-          if (authError) throw authError;
+            // إدراج المستخدم حسب نوع الحساب
+            if (currentRole === 'student') {
+                const { error } = await supabaseClient
+                    .from('students')
+                    .insert([{
+                        name: fullName,
+                        email: email,
+                        university_id: idVal,
+                        major: specialVal,
+                        password: password
+                    }]);
+                if (error) throw error;
+            } else {
+                const { error } = await supabaseClient
+                    .from('instructors')
+                    .insert([{
+                        name: fullName,
+                        email: email,
+                        department: specialVal,
+                        password: password
+                    }]);
+                if (error) throw error;
+            }
 
-          const userId = authData.user.id;
-
-          // 2. Insert into the specific table based on role
-          if (currentRole === 'student') {
-            const { error: dbError } = await supabaseClient
-              .from('students')
-              .insert([{
-                id: userId,
-                student_id: idVal,
-                full_name: fullName,
-                email: email,
-                major: specialVal
-              }]);
-            if (dbError) throw dbError;
-          } else {
-            const { error: dbError } = await supabaseClient
-              .from('instructors')
-              .insert([{
-                id: userId,
-                employee_id: idVal,
-                full_name: fullName,
-                email: email,
-                department: specialVal
-              }]);
-            if (dbError) throw dbError;
-          }
-
-          showStatus(' تم إنشاء الحساب بنجاح! يرجى تسجيل الدخول.', 'success');
-          setTimeout(() => window.location.href = 'index.html', 2000);
-
+            showStatus('✅ تم إنشاء الحساب بنجاح! يرجى تسجيل الدخول.', 'success');
+            setTimeout(() => window.location.href = 'index.html', 2000);
         } catch (error) {
-          if (error.message.includes('rate limit')) {
-            showStatus(' تم تجاوز الحد المسموح للمحاولات. يرجى الانتظار 5 دقائق أو تغيير الإعدادات في Supabase.', 'error');
-          } else {
-            showStatus(` خطأ: ${error.message}`, 'error');
-          }
+            console.error('Registration error:', error);
+            showStatus(`❌ خطأ: ${error.message}`, 'error');
         } finally {
-          submitBtn.disabled = false;
-          btnText.textContent = 'إنشاء الحساب';
-          btnLoader.classList.add('hidden');
+            submitBtn.disabled = false;
+            btnText.textContent = 'إنشاء الحساب';
+            btnLoader.classList.add('hidden');
         }
-      });
-    </script>
-  </body>
+    });
+</script>
+</body>
 </html>
