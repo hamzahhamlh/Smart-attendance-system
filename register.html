@@ -289,11 +289,11 @@
                 if (error) throw error;
             }
 
-            showStatus('✅ تم إنشاء الحساب بنجاح! يرجى تسجيل الدخول.', 'success');
+            showStatus(' تم إنشاء الحساب بنجاح! يرجى تسجيل الدخول.', 'success');
             setTimeout(() => window.location.href = 'index.html', 2000);
         } catch (error) {
             console.error('Registration error:', error);
-            showStatus(`❌ خطأ: ${error.message}`, 'error');
+            showStatus(` خطأ: ${error.message}`, 'error');
         } finally {
             submitBtn.disabled = false;
             btnText.textContent = 'إنشاء الحساب';
